@@ -173,14 +173,12 @@ func setupProxy() {
 	}
 
 	proxyHandler := func(w http.ResponseWriter, r *http.Request) {
-		// set API key for easy proxy-to-SDB communication
-		q := r.URL.Query()
-		q.Set(pa.ParsedSdbAPIKey, pa.ParsedSdbAPIValue)
-		r.URL.RawQuery = q.Encode()
+		// set API key header
+		r.Header.Set(sdbAPIKey, sdbAPIValue)
 		...
 	}
 	// bind the proxy handler to "/"
-	http.HandleFunc("/", authorizationMiddleware(proxyHandler))
+	http.HandleFunc("/", authorizationMiddleware(sdbDBName, proxyHandler, nil))
 }
 ```
 
@@ -280,13 +278,14 @@ data, err := json.Marshal(payload)
 // by default:
 // pa.SdbInstanceAddr = "https://demo.slashdb.com"
 // pa.SdbDBName = "timesheet"
-// pa.ParsedSdbAPIKey = "apikey"
-// pa.ParsedSdbAPIValue = "timesheet-api-key"
-req, _ = http.NewRequest("POST", pa.SdbInstanceAddr+"/db/"+pa.SdbDBName+"/user.json?"+pa.ParsedSdbAPIKey+"="+pa.ParsedSdbAPIValue, bytes.NewReader(data))
-ureq, err := defaultClient.Do(req)
+// pa.SdbAPIKey = "apikey"
+// pa.SdbAPIValue = "timesheet-api-key"
+req, _ = http.NewRequest("POST", pa.SdbInstanceAddr+"/db/"+pa.SdbDBName+"/user.json", bytes.NewReader(data))
+req.Header.Set(parsedSdbAPIKey, parsedSdbAPIValue)
+resp, err := defaultClient.Do(req)
 ...
 
-if ureq.StatusCode != http.StatusCreated {
+if resp.StatusCode != http.StatusCreated {
   // something went wrong, provide some useful response to the user or just return what SlashDB has returned
 }
 w.WriteHeader(http.StatusCreated)

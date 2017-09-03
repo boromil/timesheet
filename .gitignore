@@ -7,7 +7,6 @@ node_modules/
 typings/
 
 cSpell.json
-timesheet
 timesheet-demo
 
 bindata.go
