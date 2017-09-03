@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/boromil/timesheet-demo/args"
-	timesheetHttp "github.com/boromil/timesheet-demo/http"
+	"github.com/boromil/timesheet/args"
+	timesheetHttp "github.com/boromil/timesheet/http"
 	assetfs "github.com/elazarl/go-bindata-assetfs"
 )
 
