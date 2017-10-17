@@ -1,1 +1,1 @@
-web: timesheet -port $PORT
+web: timesheet -port $PORT -net-interface 0.0.0.0
