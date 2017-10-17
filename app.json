@@ -1,0 +1,14 @@
+{
+    "name": "Timesheet Demo App",
+    "description": "",
+    "keywords": [
+      "vuejs",
+      "go",
+      "slashdb",
+      "demo"
+    ],
+    "image": "heroku/go:1.9",
+    "mount_dir": "src/github.com/boromil/timesheet",
+    "website": "github.com/boromil/timesheet",
+    "repository": "github.com/boromil/timesheet"
+  }
