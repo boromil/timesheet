@@ -1,0 +1,31 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "2Fy1Y6Z3lRRX1891WF/+HT4XS2I=",
+			"path": "github.com/dgrijalva/jwt-go",
+			"revision": "a601269ab70c205d26370c16f7c81e9017c14e04",
+			"revisionTime": "2017-01-04T18:22:50Z"
+		},
+		{
+			"checksumSHA1": "9Xy4JjEsr+Mu4v4eE9KA0TItfQU=",
+			"path": "github.com/dgrijalva/jwt-go/request",
+			"revision": "a601269ab70c205d26370c16f7c81e9017c14e04",
+			"revisionTime": "2017-01-04T18:22:50Z"
+		},
+		{
+			"checksumSHA1": "7DxViusFRJ7UPH0jZqYatwDrOkY=",
+			"path": "github.com/elazarl/go-bindata-assetfs",
+			"revision": "30f82fa23fd844bd5bb1e5f216db87fd77b5eb43",
+			"revisionTime": "2017-02-27T21:27:28Z"
+		},
+		{
+			"checksumSHA1": "1MGpGDQqnUoRpv7VEcQrXOBydXE=",
+			"path": "golang.org/x/crypto/pbkdf2",
+			"revision": "adbae1b6b6fb4b02448a0fc0dbbc9ba2b95b294d",
+			"revisionTime": "2017-06-19T06:03:41Z"
+		}
+	],
+	"rootPath": "github.com/boromil/timesheet"
+}
