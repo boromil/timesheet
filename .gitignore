@@ -9,7 +9,6 @@ typings/
 cSpell.json
 timesheet-demo
 
-bindata.go
 timesheet-linux64
 timesheet-osx64
 timesheet-win64.exe
