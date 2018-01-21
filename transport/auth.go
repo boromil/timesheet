@@ -1,14 +1,11 @@
-package timesheetHttp
+package transport
 
 import (
-	"bytes"
 	"crypto/sha512"
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -16,6 +13,7 @@ import (
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/dgrijalva/jwt-go/request"
+	"gitlab.com/boromil/goslashdb/slashdb"
 
 	"golang.org/x/crypto/pbkdf2"
 )
@@ -23,8 +21,8 @@ import (
 var (
 	defaultTransport = &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
-		ResponseHeaderTimeout: time.Second * 2,
-		IdleConnTimeout:       time.Second * 8,
+		ResponseHeaderTimeout: time.Second * 10,
+		IdleConnTimeout:       time.Second * 10,
 		MaxIdleConns:          30,
 		MaxIdleConnsPerHost:   3,
 	}
@@ -70,14 +68,8 @@ func writeValidationErrors(w http.ResponseWriter, vData map[string][]string) err
 }
 
 func regHandler(
-	sdbDBName, sdbInstanceAddr, sdbAPIKey, sdbAPIValue, address string,
+	sdbService slashdb.Service,
 ) func(w http.ResponseWriter, r *http.Request) {
-	userDataFormatString := fmt.Sprintf(
-		"%s/db/%s/user/username/%s.json", sdbInstanceAddr, sdbDBName, "%s",
-	)
-	createUserFormatString := fmt.Sprintf(
-		"%s/db/%s/user.json", sdbInstanceAddr, sdbDBName,
-	)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			err := r.ParseForm()
@@ -91,48 +83,42 @@ func regHandler(
 			un := r.FormValue("username")
 			unErrors := basicValidation("username", un, 3, 35)
 
-			req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf(userDataFormatString, un), nil)
-			req.Header.Set(sdbAPIKey, sdbAPIValue)
-			resp, err := defaultClient.Do(req)
-			if resp != nil {
-				defer func() {
-					if _, err = io.Copy(ioutil.Discard, resp.Body); err != nil {
-						log.Printf("error copying the resp.Body content: %v\n", err)
-					}
-					if err = resp.Body.Close(); err != nil {
-						log.Printf("error closing the resp.Body: %v\n", err)
-					}
-				}()
-			}
-			if err != nil {
-				logAndWrite(err, fmt.Sprintf("couldn't find user %q, or service %q unavailable", un, sdbInstanceAddr), w)
+			userReq := slashdb.NewDataRequest("")
+			userReq.AddParts(
+				slashdb.Part{Name: "timesheet"},
+				slashdb.Part{
+					Name: "user",
+					Filter: slashdb.Filter{
+						Values: map[string][]string{"username": []string{un}},
+						Order:  []string{"username"},
+					},
+					Fields: []string{"username"},
+				},
+			)
+
+			userNames := []string{}
+			if err = sdbService.Get(r.Context(), userReq, &userNames); err != nil {
+				logAndWrite(err, fmt.Sprintf("couldn't find user %q or SlashDB instance unavailable", un), w)
 				return
 			}
 
-			body, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				logAndWrite(err, "error reading user response body", w)
-				return
-			}
-			if len(body) > 2 {
+			if len(userNames) > 0 {
 				unErrors = append(unErrors, fmt.Sprintf("user %q exists, please select a diffrent user name", un))
 			}
-
-			email := r.FormValue("email")
-			emailErrors := basicValidation("email", email, 5, 45)
-
-			passwd := r.FormValue("password")
-			passwdErrors := basicValidation("password", passwd, 6, 45)
 
 			validationData := map[string][]string{}
 			if len(unErrors) > 0 {
 				validationData["username"] = unErrors
 			}
 
+			email := r.FormValue("email")
+			emailErrors := basicValidation("email", email, 5, 45)
 			if len(emailErrors) > 0 {
 				validationData["email"] = emailErrors
 			}
 
+			passwd := r.FormValue("password")
+			passwdErrors := basicValidation("password", passwd, 6, 45)
 			if len(passwdErrors) > 0 {
 				validationData["password"] = passwdErrors
 			}
@@ -142,49 +128,23 @@ func regHandler(
 				return
 			}
 
-			encodedPass := genPassword(un+passwd, nil)
-			payload := map[string]string{
-				"username": un,
-				"passwd":   encodedPass,
-				"email":    email,
+			userData := User{
+				Username: un,
+				Passwd:   genPassword(un+passwd, nil),
+				Email:    email,
 			}
-			data, err := json.Marshal(payload)
-			if err != nil {
-				log.Printf("data: %v, error: %v", payload, err)
-				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			userReq = slashdb.NewDataRequest("")
+			userReq.AddParts(
+				slashdb.Part{
+					Name:   "timesheet",
+					Fields: []string{"user"},
+				},
+			)
+			if _, err = sdbService.Create(r.Context(), userReq, userData); err != nil {
+				logAndWrite(err, fmt.Sprintf("couldn't create user %q SlashDB instance unavailable", un), w)
 				return
 			}
 
-			req, _ = http.NewRequest(http.MethodPost, createUserFormatString, bytes.NewReader(data))
-			req.Header.Set(sdbAPIKey, sdbAPIValue)
-			resp, err = defaultClient.Do(req)
-			if resp != nil {
-				defer func() {
-					if _, err = io.Copy(ioutil.Discard, resp.Body); err != nil {
-						log.Printf("error copying the resp.Body content: %v\n", err)
-					}
-					if err = resp.Body.Close(); err != nil {
-						log.Printf("error closing the resp.Body: %v\n", err)
-					}
-				}()
-			}
-			if err != nil {
-				logAndWrite(err, fmt.Sprintf("couldn't create user %q, or service %q unavailable", un, address), w)
-				return
-			}
-
-			if resp.StatusCode != http.StatusCreated {
-				body, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					logAndWrite(err, "error reading user creation response body", w)
-					return
-				}
-
-				w.WriteHeader(resp.StatusCode)
-				w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-				w.Write(body)
-				return
-			}
 			w.WriteHeader(http.StatusCreated)
 			w.Write([]byte(fmt.Sprintf("User %q was created successfully!", un)))
 		}
@@ -206,11 +166,8 @@ func genJWTToken(username string, id int, secret []byte) (string, error) {
 }
 
 func loginHandler(
-	sdbDBName, sdbInstanceAddr, sdbAPIKey, sdbAPIValue string,
+	sdbService slashdb.Service,
 ) func(w http.ResponseWriter, r *http.Request) {
-	userDataFormatString := fmt.Sprintf(
-		"%s/db/%s/user/username/%s.json", sdbInstanceAddr, sdbDBName, "%s",
-	)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			err := r.ParseForm()
@@ -224,47 +181,38 @@ func loginHandler(
 			un := r.FormValue("username")
 			unErrors := basicValidation("username", un, 3, 35)
 
-			var body []byte
+			userReq := slashdb.NewDataRequest("")
+			userReq.AddParts(
+				slashdb.Part{Name: "timesheet"},
+				slashdb.Part{
+					Name: "user",
+					Filter: slashdb.Filter{
+						Values: map[string][]string{
+							"username": []string{un},
+						},
+					},
+				},
+			)
+
+			userData := []User{}
 			if len(unErrors) == 0 {
-				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf(userDataFormatString, un), nil)
-				req.Header.Set(sdbAPIKey, sdbAPIValue)
-				resp, err := defaultClient.Do(req)
-				if resp != nil {
-					defer func() {
-						if _, err = io.Copy(ioutil.Discard, resp.Body); err != nil {
-							log.Printf("error copying the resp.Body content: %v\n", err)
-						}
-						if err = resp.Body.Close(); err != nil {
-							log.Printf("error closing the resp.Body: %v\n", err)
-						}
-					}()
-				}
-				if err != nil || resp.StatusCode != http.StatusOK {
-					logAndWrite(
-						err, fmt.Sprintf("couldn't find user %q, or service %q unavailable", un, sdbInstanceAddr), w,
-					)
+				if err = sdbService.Get(r.Context(), userReq, &userData); err != nil {
+					logAndWrite(err, fmt.Sprintf("couldn't find user %q or SlashDB instance unavailable", un), w)
 					return
 				}
 
-				body, err = ioutil.ReadAll(resp.Body)
-				if err != nil {
-					logAndWrite(err, "error reading user response body", w)
-					return
-				}
-
-				if len(body) == 2 {
+				if len(userData) != 1 {
 					unErrors = append(unErrors, "no such user")
 				}
 			}
-
-			passwd := r.FormValue("password")
-			passErrors := basicValidation("password", passwd, 6, 45)
 
 			validationData := map[string][]string{}
 			if len(unErrors) > 0 {
 				validationData["username"] = unErrors
 			}
 
+			passwd := r.FormValue("password")
+			passErrors := basicValidation("password", passwd, 6, 45)
 			if len(passErrors) > 0 {
 				validationData["password"] = passErrors
 			}
@@ -274,15 +222,8 @@ func loginHandler(
 				return
 			}
 
-			var data []map[string]interface{}
-			err = json.Unmarshal(body, &data)
-			if err != nil {
-				logAndWrite(err, fmt.Sprintf("error marshalling %v", body), w)
-				return
-			}
-
-			dataUn := data[0]["username"].(string)
-			dataPasswd := data[0]["passwd"].(string)
+			dataUn := userData[0].Username
+			dataPasswd := userData[0].Passwd
 			encodedPass := genPassword(un+passwd, nil)
 			if dataUn != un || dataPasswd != encodedPass {
 				errMsg := "wrong username or password"
@@ -294,35 +235,22 @@ func loginHandler(
 				return
 			}
 
-			st, err := genJWTToken(un, int(data[0]["id"].(float64)), nil)
+			st, err := genJWTToken(un, userData[0].ID, nil)
 			if err != nil {
 				logAndWrite(err, "error generating JWT token", w)
 				return
 			}
-			tc := struct {
-				Token string `json:"accessToken"`
-			}{st}
-			td, err := json.Marshal(tc)
-			if err != nil {
-				log.Printf("data: %v, error: %v", tc, err)
-				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-				return
-			}
-			w.Write(td)
+			w.Write([]byte(`{"accessToken":"` + st + `"}`))
 		}
 	}
 }
 
 // SetupAuthHandlers adds user auth endpoints
 func SetupAuthHandlers(
-	sdbDBName,
-	sdbInstanceAddr,
-	sdbAPIKey,
-	sdbAPIValue,
-	address string,
+	sdbService slashdb.Service,
 ) {
-	http.HandleFunc("/app/reg/", regHandler(sdbDBName, sdbInstanceAddr, sdbAPIKey, sdbAPIValue, address))
-	http.HandleFunc("/app/login/", loginHandler(sdbDBName, sdbInstanceAddr, sdbAPIKey, sdbAPIValue))
+	http.HandleFunc("/app/reg/", regHandler(sdbService))
+	http.HandleFunc("/app/login/", loginHandler(sdbService))
 }
 
 func authorizationMiddleware(

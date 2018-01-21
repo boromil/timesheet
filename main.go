@@ -2,15 +2,18 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/boromil/timesheet/args"
-	timesheetHttp "github.com/boromil/timesheet/http"
+	transport "github.com/boromil/timesheet/transport"
 	assetfs "github.com/elazarl/go-bindata-assetfs"
+	"gitlab.com/boromil/goslashdb/slashdb"
 )
 
 func main() {
@@ -33,10 +36,33 @@ func main() {
 		}
 	}()
 
-	timesheetHttp.SetupReverseProxy(pa.SdbDBName, pa.SdbInstanceAddr, pa.SdbAPIKey, pa.SdbAPIValue)
+	transport.SetupReverseProxy(pa.SdbDBName, pa.SdbInstanceAddr, pa.SdbAPIKey, pa.SdbAPIValue)
 	afs := &assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo, Prefix: ""}
-	timesheetHttp.SetupBasicHandlers(pa.SdbDBName, afs)
-	timesheetHttp.SetupAuthHandlers(pa.SdbDBName, pa.SdbInstanceAddr, pa.SdbAPIKey, pa.SdbAPIValue, pa.Address)
+	transport.SetupBasicHandlers(pa.SdbDBName, afs)
+
+	var sdbService slashdb.Service
+	sdbService, err := slashdb.NewService(
+		pa.SdbInstanceAddr,
+		pa.SdbAPIKey,
+		pa.SdbAPIValue,
+		"__href",
+		true,
+		&http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+				ResponseHeaderTimeout: time.Second * 10,
+				IdleConnTimeout:       time.Second * 10,
+				MaxIdleConns:          30,
+				MaxIdleConnsPerHost:   3,
+			},
+		},
+	)
+	if err != nil {
+		log.Fatalf("error initing slashdb service: %v\n", err)
+	}
+	transport.SetupAuthHandlers(sdbService)
 
 	fmt.Printf("Serving on http://%s/app/\n", pa.Address)
 	log.Fatal(s.ListenAndServe())

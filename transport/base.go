@@ -1,4 +1,4 @@
-package timesheetHttp
+package transport
 
 import (
 	"html/template"

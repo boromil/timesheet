@@ -27,6 +27,24 @@
 			"revisionTime": "2017-02-27T21:27:28Z"
 		},
 		{
+			"checksumSHA1": "xCv4GBFyw07vZkVtKF/XrUnkHRk=",
+			"path": "github.com/pkg/errors",
+			"revision": "e881fd58d78e04cf6d0de1217f8707c8cc2249bc",
+			"revisionTime": "2017-12-16T07:03:16Z"
+		},
+		{
+			"checksumSHA1": "kQ3wDxcSkEH5CHiBju7tH9hjc/c=",
+			"path": "gitlab.com/boromil/goslashdb/slashdb",
+			"revision": "d275fca29f3fdebc0cf5e19c0c646c8e2fdc8902",
+			"revisionTime": "2018-01-21T15:39:06Z"
+		},
+		{
+			"checksumSHA1": "D3cKOiGYiwT0RUFAtI2fN43OViw=",
+			"path": "gitlab.com/boromil/goslashdb/types",
+			"revision": "3de36870d17efa57a6954bf89bc483474286429d",
+			"revisionTime": "2018-01-21T11:26:11Z"
+		},
+		{
 			"checksumSHA1": "1MGpGDQqnUoRpv7VEcQrXOBydXE=",
 			"path": "golang.org/x/crypto/pbkdf2",
 			"revision": "adbae1b6b6fb4b02448a0fc0dbbc9ba2b95b294d",
