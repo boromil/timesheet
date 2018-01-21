@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -22,14 +23,16 @@ import (
 var (
 	defaultTransport = &http.Transport{
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
-		ResponseHeaderTimeout: time.Millisecond * 200,
-		IdleConnTimeout:       time.Millisecond * 800,
+		ResponseHeaderTimeout: time.Second * 2,
+		IdleConnTimeout:       time.Second * 8,
+		MaxIdleConns:          30,
+		MaxIdleConnsPerHost:   3,
 	}
 	defaultClient = &http.Client{Transport: defaultTransport}
 )
 
 func logAndWrite(err error, logMsg string, w http.ResponseWriter) {
-	log.Println(logMsg+",", err)
+	log.Println(logMsg+",", err.Error())
 	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 }
 
@@ -76,7 +79,7 @@ func regHandler(
 		"%s/db/%s/user.json", sdbInstanceAddr, sdbDBName,
 	)
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" {
+		if r.Method == http.MethodPost {
 			err := r.ParseForm()
 			w.Header().Set("Content-Type", "application/json")
 			if err != nil {
@@ -88,14 +91,23 @@ func regHandler(
 			un := r.FormValue("username")
 			unErrors := basicValidation("username", un, 3, 35)
 
-			req, _ := http.NewRequest("GET", fmt.Sprintf(userDataFormatString, un), nil)
+			req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf(userDataFormatString, un), nil)
 			req.Header.Set(sdbAPIKey, sdbAPIValue)
 			resp, err := defaultClient.Do(req)
+			if resp != nil {
+				defer func() {
+					if _, err = io.Copy(ioutil.Discard, resp.Body); err != nil {
+						log.Printf("error copying the resp.Body content: %v\n", err)
+					}
+					if err = resp.Body.Close(); err != nil {
+						log.Printf("error closing the resp.Body: %v\n", err)
+					}
+				}()
+			}
 			if err != nil {
 				logAndWrite(err, fmt.Sprintf("couldn't find user %q, or service %q unavailable", un, sdbInstanceAddr), w)
 				return
 			}
-			defer resp.Body.Close()
 
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
@@ -143,14 +155,23 @@ func regHandler(
 				return
 			}
 
-			req, _ = http.NewRequest("POST", createUserFormatString, bytes.NewReader(data))
+			req, _ = http.NewRequest(http.MethodPost, createUserFormatString, bytes.NewReader(data))
 			req.Header.Set(sdbAPIKey, sdbAPIValue)
 			resp, err = defaultClient.Do(req)
+			if resp != nil {
+				defer func() {
+					if _, err = io.Copy(ioutil.Discard, resp.Body); err != nil {
+						log.Printf("error copying the resp.Body content: %v\n", err)
+					}
+					if err = resp.Body.Close(); err != nil {
+						log.Printf("error closing the resp.Body: %v\n", err)
+					}
+				}()
+			}
 			if err != nil {
 				logAndWrite(err, fmt.Sprintf("couldn't create user %q, or service %q unavailable", un, address), w)
 				return
 			}
-			defer resp.Body.Close()
 
 			if resp.StatusCode != http.StatusCreated {
 				body, err := ioutil.ReadAll(resp.Body)
@@ -188,10 +209,10 @@ func loginHandler(
 	sdbDBName, sdbInstanceAddr, sdbAPIKey, sdbAPIValue string,
 ) func(w http.ResponseWriter, r *http.Request) {
 	userDataFormatString := fmt.Sprintf(
-		"%s/db/%s/user/username/%s.json?%s=%s", sdbInstanceAddr, sdbDBName, "%s",
+		"%s/db/%s/user/username/%s.json", sdbInstanceAddr, sdbDBName, "%s",
 	)
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" {
+		if r.Method == http.MethodPost {
 			err := r.ParseForm()
 			w.Header().Set("Content-Type", "application/json")
 			if err != nil {
@@ -205,16 +226,25 @@ func loginHandler(
 
 			var body []byte
 			if len(unErrors) == 0 {
-				req, _ := http.NewRequest("GET", fmt.Sprintf(userDataFormatString, un), nil)
+				req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf(userDataFormatString, un), nil)
 				req.Header.Set(sdbAPIKey, sdbAPIValue)
 				resp, err := defaultClient.Do(req)
+				if resp != nil {
+					defer func() {
+						if _, err = io.Copy(ioutil.Discard, resp.Body); err != nil {
+							log.Printf("error copying the resp.Body content: %v\n", err)
+						}
+						if err = resp.Body.Close(); err != nil {
+							log.Printf("error closing the resp.Body: %v\n", err)
+						}
+					}()
+				}
 				if err != nil || resp.StatusCode != http.StatusOK {
 					logAndWrite(
 						err, fmt.Sprintf("couldn't find user %q, or service %q unavailable", un, sdbInstanceAddr), w,
 					)
 					return
 				}
-				defer resp.Body.Close()
 
 				body, err = ioutil.ReadAll(resp.Body)
 				if err != nil {
@@ -283,7 +313,14 @@ func loginHandler(
 	}
 }
 
-func SetupAuthHandlers(sdbDBName, sdbInstanceAddr, sdbAPIKey, sdbAPIValue, address string) {
+// SetupAuthHandlers adds user auth endpoints
+func SetupAuthHandlers(
+	sdbDBName,
+	sdbInstanceAddr,
+	sdbAPIKey,
+	sdbAPIValue,
+	address string,
+) {
 	http.HandleFunc("/app/reg/", regHandler(sdbDBName, sdbInstanceAddr, sdbAPIKey, sdbAPIValue, address))
 	http.HandleFunc("/app/login/", loginHandler(sdbDBName, sdbInstanceAddr, sdbAPIKey, sdbAPIValue))
 }

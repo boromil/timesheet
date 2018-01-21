@@ -280,7 +280,7 @@ data, err := json.Marshal(payload)
 // pa.SdbDBName = "timesheet"
 // pa.SdbAPIKey = "apikey"
 // pa.SdbAPIValue = "timesheet-api-key"
-req, _ = http.NewRequest("POST", pa.SdbInstanceAddr+"/db/"+pa.SdbDBName+"/user.json", bytes.NewReader(data))
+req, _ = http.NewRequest(http.MethodPost, pa.SdbInstanceAddr+"/db/"+pa.SdbDBName+"/user.json", bytes.NewReader(data))
 req.Header.Set(parsedSdbAPIKey, parsedSdbAPIValue)
 resp, err := defaultClient.Do(req)
 ...
