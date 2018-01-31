@@ -1,5 +1,5 @@
 /*!
- * vue-resource v1.2.0
+ * vue-resource v1.3.5
  * https://github.com/pagekit/vue-resource
  * Released under the MIT License.
  */
@@ -266,20 +266,23 @@ p.finally = function (callback) {
  * Utility functions.
  */
 
-var debug = false;
-var util = {};
 var ref = {};
 var hasOwnProperty = ref.hasOwnProperty;
 
 var ref$1 = [];
 var slice = ref$1.slice;
+var debug = false;
+var ntick;
 
 var inBrowser = typeof window !== 'undefined';
 
-var Util = function (Vue) {
-    util = Vue.util;
-    debug = Vue.config.debug || !Vue.config.silent;
-};
+function Util (ref) {
+    var config = ref.config;
+    var nextTick = ref.nextTick;
+
+    ntick = nextTick;
+    debug = config.debug || !config.silent;
+}
 
 function warn(msg) {
     if (typeof console !== 'undefined' && debug) {
@@ -294,11 +297,24 @@ function error(msg) {
 }
 
 function nextTick(cb, ctx) {
-    return util.nextTick(cb, ctx);
+    return ntick(cb, ctx);
 }
 
 function trim(str) {
     return str ? str.replace(/^\s*|\s*$/g, '') : '';
+}
+
+function trimEnd(str, chars) {
+
+    if (str && chars === undefined) {
+        return str.replace(/\s+$/, '');
+    }
+
+    if (!str || !chars) {
+        return str;
+    }
+
+    return str.replace(new RegExp(("[" + chars + "]+$")), '');
 }
 
 function toLower(str) {
@@ -439,22 +455,22 @@ function _merge(target, source, deep) {
  * Root Prefix Transform.
  */
 
-var root = function (options$$1, next) {
+function root (options$$1, next) {
 
     var url = next(options$$1);
 
-    if (isString(options$$1.root) && !url.match(/^(https?:)?\//)) {
-        url = options$$1.root + '/' + url;
+    if (isString(options$$1.root) && !/^(https?:)?\//.test(url)) {
+        url = trimEnd(options$$1.root, '/') + '/' + url;
     }
 
     return url;
-};
+}
 
 /**
  * Query Parameter Transform.
  */
 
-var query = function (options$$1, next) {
+function query (options$$1, next) {
 
     var urlParams = Object.keys(Url.options.params), query = {}, url = next(options$$1);
 
@@ -471,7 +487,7 @@ var query = function (options$$1, next) {
     }
 
     return url;
-};
+}
 
 /**
  * URL Template v2.0.6 (https://github.com/bramstein/url-template)
@@ -628,7 +644,7 @@ function encodeReserved(str) {
  * URL Template (RFC 6570) Transform.
  */
 
-var template = function (options) {
+function template (options) {
 
     var variables = [], url = expand(options.url, options.params, variables);
 
@@ -637,7 +653,7 @@ var template = function (options) {
     });
 
     return url;
-};
+}
 
 /**
  * Service for URL templating.
@@ -654,7 +670,15 @@ function Url(url, params) {
     options$$1 = merge({}, Url.options, self.$options, options$$1);
 
     Url.transforms.forEach(function (handler) {
-        transform = factory(handler, transform, self.$vm);
+
+        if (isString(handler)) {
+            handler = Url.transform[handler];
+        }
+
+        if (isFunction(handler)) {
+            transform = factory(handler, transform, self.$vm);
+        }
+
     });
 
     return transform(options$$1);
@@ -674,7 +698,8 @@ Url.options = {
  * Url transforms.
  */
 
-Url.transforms = [template, query, root];
+Url.transform = {template: template, query: query, root: root};
+Url.transforms = ['template', 'query', 'root'];
 
 /**
  * Encodes a Url parameter string.
@@ -765,7 +790,7 @@ function serialize(params, obj, scope) {
  * XDomain client (Internet Explorer).
  */
 
-var xdrClient = function (request) {
+function xdrClient (request) {
     return new PromiseObj(function (resolve) {
 
         var xdr = new XDomainRequest(), handler = function (ref) {
@@ -798,7 +823,7 @@ var xdrClient = function (request) {
         xdr.onprogress = function () {};
         xdr.send(request.getBody());
     });
-};
+}
 
 /**
  * CORS Interceptor.
@@ -806,7 +831,7 @@ var xdrClient = function (request) {
 
 var SUPPORTS_CORS = inBrowser && 'withCredentials' in new XMLHttpRequest();
 
-var cors = function (request, next) {
+function cors (request, next) {
 
     if (inBrowser) {
 
@@ -825,45 +850,44 @@ var cors = function (request, next) {
     }
 
     next();
-};
+}
 
 /**
- * Body Interceptor.
+ * Form data Interceptor.
  */
 
-var body = function (request, next) {
+function form (request, next) {
 
     if (isFormData(request.body)) {
 
         request.headers.delete('Content-Type');
 
-    } else if (isObject(request.body) || isArray(request.body)) {
+    } else if (isObject(request.body) && request.emulateJSON) {
 
-        if (request.emulateJSON) {
-            request.body = Url.params(request.body);
-            request.headers.set('Content-Type', 'application/x-www-form-urlencoded');
-        } else {
-            request.body = JSON.stringify(request.body);
-        }
+        request.body = Url.params(request.body);
+        request.headers.set('Content-Type', 'application/x-www-form-urlencoded');
+    }
+
+    next();
+}
+
+/**
+ * JSON Interceptor.
+ */
+
+function json (request, next) {
+
+    var type = request.headers.get('Content-Type') || '';
+
+    if (isObject(request.body) && type.indexOf('application/json') === 0) {
+        request.body = JSON.stringify(request.body);
     }
 
     next(function (response) {
 
-        Object.defineProperty(response, 'data', {
-
-            get: function get() {
-                return this.body;
-            },
-
-            set: function set(body) {
-                this.body = body;
-            }
-
-        });
-
         return response.bodyText ? when(response.text(), function (text) {
 
-            var type = response.headers.get('Content-Type') || '';
+            type = response.headers.get('Content-Type') || '';
 
             if (type.indexOf('application/json') === 0 || isJson(text)) {
 
@@ -882,20 +906,21 @@ var body = function (request, next) {
         }) : response;
 
     });
-};
+}
 
 function isJson(str) {
 
-    var start = str.match(/^\[|^\{(?!\{)/), end = {'[': /]$/, '{': /}$/};
+    var start = str.match(/^\s*(\[|\{)/);
+    var end = {'[': /]\s*$/, '{': /}\s*$/};
 
-    return start && end[start[0]].test(str);
+    return start && end[start[1]].test(str);
 }
 
 /**
  * JSONP client (Browser).
  */
 
-var jsonpClient = function (request) {
+function jsonpClient (request) {
     return new PromiseObj(function (resolve) {
 
         var name = request.jsonp || 'callback', callback = request.jsonpCallback || '_jsonp' + Math.random().toString(36).substr(2), body = null, handler, script;
@@ -943,39 +968,39 @@ var jsonpClient = function (request) {
 
         document.body.appendChild(script);
     });
-};
+}
 
 /**
  * JSONP Interceptor.
  */
 
-var jsonp = function (request, next) {
+function jsonp (request, next) {
 
     if (request.method == 'JSONP') {
         request.client = jsonpClient;
     }
 
     next();
-};
+}
 
 /**
  * Before Interceptor.
  */
 
-var before = function (request, next) {
+function before (request, next) {
 
     if (isFunction(request.before)) {
         request.before.call(this, request);
     }
 
     next();
-};
+}
 
 /**
  * HTTP method override Interceptor.
  */
 
-var method = function (request, next) {
+function method (request, next) {
 
     if (request.emulateHTTP && /^(PUT|PATCH|DELETE)$/i.test(request.method)) {
         request.headers.set('X-HTTP-Method-Override', request.method);
@@ -983,13 +1008,13 @@ var method = function (request, next) {
     }
 
     next();
-};
+}
 
 /**
  * Header Interceptor.
  */
 
-var header = function (request, next) {
+function header (request, next) {
 
     var headers = assign({}, Http.headers.common,
         !request.crossOrigin ? Http.headers.custom : {},
@@ -1003,15 +1028,13 @@ var header = function (request, next) {
     });
 
     next();
-};
+}
 
 /**
  * XMLHttp client (Browser).
  */
 
-var SUPPORTS_BLOB = typeof Blob !== 'undefined' && typeof FileReader !== 'undefined';
-
-var xhrClient = function (request) {
+function xhrClient (request) {
     return new PromiseObj(function (resolve) {
 
         var xhr = new XMLHttpRequest(), handler = function (event) {
@@ -1046,16 +1069,16 @@ var xhrClient = function (request) {
             xhr.timeout = request.timeout;
         }
 
-        if (request.credentials === true) {
+        if (request.responseType && 'responseType' in xhr) {
+            xhr.responseType = request.responseType;
+        }
+
+        if (request.withCredentials || request.credentials) {
             xhr.withCredentials = true;
         }
 
         if (!request.crossOrigin) {
             request.headers.set('X-Requested-With', 'XMLHttpRequest');
-        }
-
-        if ('responseType' in xhr && SUPPORTS_BLOB) {
-            xhr.responseType = 'blob';
         }
 
         request.headers.forEach(function (value, name) {
@@ -1068,13 +1091,13 @@ var xhrClient = function (request) {
         xhr.ontimeout = handler;
         xhr.send(request.getBody());
     });
-};
+}
 
 /**
  * Http client (Node).
  */
 
-var nodeClient = function (request) {
+function nodeClient (request) {
 
     var client = require('got');
 
@@ -1105,13 +1128,13 @@ var nodeClient = function (request) {
 
         }, function (error$$1) { return handler(error$$1.response); });
     });
-};
+}
 
 /**
  * Base client.
  */
 
-var Client = function (context) {
+function Client (context) {
 
     var reqHandlers = [sendRequest], resHandlers = [], handler;
 
@@ -1120,7 +1143,7 @@ var Client = function (context) {
     }
 
     function Client(request) {
-        return new PromiseObj(function (resolve) {
+        return new PromiseObj(function (resolve, reject) {
 
             function exec() {
 
@@ -1145,10 +1168,10 @@ var Client = function (context) {
                     resHandlers.forEach(function (handler) {
                         response = when(response, function (response) {
                             return handler.call(context, response) || response;
-                        });
+                        }, reject);
                     });
 
-                    when(response, resolve);
+                    when(response, resolve, reject);
 
                     return;
                 }
@@ -1166,7 +1189,7 @@ var Client = function (context) {
     };
 
     return Client;
-};
+}
 
 function sendRequest(request, resolve) {
 
@@ -1196,7 +1219,7 @@ Headers.prototype.get = function get (name) {
 
     var list = this.map[getName(this.map, name)];
 
-    return list ? list[0] : null;
+    return list ? list.join() : null;
 };
 
 Headers.prototype.getAll = function getAll (name) {
@@ -1209,9 +1232,9 @@ Headers.prototype.set = function set (name, value) {
 
 Headers.prototype.append = function append (name, value){
 
-    var list = this.getAll(name);
+    var list = this.map[getName(this.map, name)];
 
-    if (list.length) {
+    if (list) {
         list.push(trim(value));
     } else {
         this.set(name, value);
@@ -1293,6 +1316,18 @@ Response.prototype.json = function json () {
     return when(this.text(), function (text) { return JSON.parse(text); });
 };
 
+Object.defineProperty(Response.prototype, 'data', {
+
+    get: function get() {
+        return this.body;
+    },
+
+    set: function set(body) {
+        this.body = body;
+    }
+
+});
+
 function blobText(body) {
     return new PromiseObj(function (resolve) {
 
@@ -1354,7 +1389,15 @@ function Http(options$$1) {
     defaults(options$$1 || {}, self.$options, Http.options);
 
     Http.interceptors.forEach(function (handler) {
-        client.use(handler);
+
+        if (isString(handler)) {
+            handler = Http.interceptor[handler];
+        }
+
+        if (isFunction(handler)) {
+            client.use(handler);
+        }
+
     });
 
     return client(new Request(options$$1)).then(function (response) {
@@ -1382,7 +1425,8 @@ Http.headers = {
     custom: {}
 };
 
-Http.interceptors = [before, method, body, jsonp, header, cors];
+Http.interceptor = {before: before, method: method, jsonp: jsonp, json: json, form: form, header: header, cors: cors};
+Http.interceptors = ['before', 'method', 'jsonp', 'json', 'form', 'header', 'cors'];
 
 ['get', 'delete', 'head', 'jsonp'].forEach(function (method$$1) {
 
@@ -1394,8 +1438,8 @@ Http.interceptors = [before, method, body, jsonp, header, cors];
 
 ['post', 'put', 'patch'].forEach(function (method$$1) {
 
-    Http[method$$1] = function (url, body$$1, options$$1) {
-        return this(assign(options$$1 || {}, {url: url, method: method$$1, body: body$$1}));
+    Http[method$$1] = function (url, body, options$$1) {
+        return this(assign(options$$1 || {}, {url: url, method: method$$1, body: body}));
     };
 
 });
