@@ -16,23 +16,23 @@ func SetupBasicHandlers(sdbDBName string, afs *assetfs.AssetFS) {
 		indexTmpl := template.New("index.html")
 		data, err := afs.Asset("index.html")
 		if err != nil {
-			log.Fatalln(err)
+			log.Printf("afs.Asset: %v\n", err)
 		}
-		_, err = indexTmpl.Parse(string(data))
-		if err != nil {
-			log.Fatalln(err)
+		if _, err = indexTmpl.Parse(string(data)); err != nil {
+			log.Printf("indexTmpl.Parse: %v\n", err)
 		}
-		indexTmpl.Execute(w, tmpData)
+		if err = indexTmpl.Execute(w, tmpData); err != nil {
+			log.Printf("indexTmpl.Execute: %v\n", err)
+		}
 	})
-	fs := http.FileServer(afs)
-	http.Handle("/app/static/", http.StripPrefix("/app/static/", fs))
+	http.Handle("/app/static/", http.StripPrefix("/app/static/", http.FileServer(afs)))
 }
 
 func SetupReverseProxy(sdbDBName, sdbInstanceAddr, sdbAPIKey, sdbAPIValue string) {
 	// get address for the SlashDB instance and parse the URL
 	url, err := url.Parse(sdbInstanceAddr)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalf("failed to parse sdbInstanceAddr: %v\n", err)
 	}
 
 	// create a reverse proxy

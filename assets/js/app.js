@@ -200,7 +200,7 @@
                 <label for="password">Password</label>
                 <input type="password" class="form-control"
                        :class="{'form-control-danger': password.errors.length > 0}"
-                       @keyup="isTheSamePass"
+                       @keyup="isSamePass"
                        id="password"
                        v-model.trim="password.value"
                        placeholder="enter user password">
@@ -209,7 +209,7 @@
             <div class="form-group" :class="{'has-danger': password2.errors.length > 0}">
                 <input type="password" class="form-control"
                        :class="{'form-control-danger': password2.errors.length > 0}"
-                       @keyup="isTheSamePass"
+                       @keyup="isSamePass"
                        id="password2"
                        v-model.trim="password2.value"
                        placeholder="re-enter user password">
@@ -238,7 +238,8 @@
                 },
                 password2: {
                     value: '',
-                    errors: []
+                    errors: [],
+                    required: true
                 },
                 form: {
                     errors: []
@@ -246,14 +247,15 @@
             };
         },
         methods: {
-            isTheSamePass: function () {
-                if (this.password.value !== this.password2.value) {
-                    if (this.password2.errors.length === 0) {
-                        this.password2.errors.push("the password is different to the one above");
-                    }
-                    return;
+            isSamePass: function () {
+                if (this.password.value === this.password2.value) {
+                    this.password2.errors.pop();
+                    return
                 }
-                this.password2.errors.pop();
+                var diffPasswdMsg = "the password is different to the one above";
+                if (this.password2.errors.indexOf(diffPasswdMsg) < 0) {
+                    this.password2.errors.push(diffPasswdMsg);
+                }
             },
             register: function () {
                 var self = this;
@@ -263,7 +265,8 @@
                         data = {
                             username: this.username.value,
                             email: this.email.value,
-                            password: this.password.value
+                            password: this.password.value,
+                            password2: this.password2.value
                         };
 
                     $.ajax({

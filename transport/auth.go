@@ -6,9 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -55,99 +56,107 @@ func basicValidation(name, val string, minLen, maxLen int) []string {
 	return errs
 }
 
-func writeValidationErrors(w http.ResponseWriter, vData map[string][]string) error {
-	data, err := json.Marshal(vData)
-	if err != nil {
-		log.Printf("data: %v, error: %v\n", vData, err)
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return err
-	}
+func writeValidationErrors(w http.ResponseWriter, vData map[string][]string) {
 	w.WriteHeader(http.StatusBadRequest)
-	w.Write(data)
-	return nil
+	if err := json.NewEncoder(w).Encode(vData); err != nil {
+		log.Printf("data: %v, error: %v\n", vData, err)
+		w.Write([]byte(http.StatusText(http.StatusBadRequest)))
+	}
 }
 
 func regHandler(
 	sdbService slashdb.Service,
 ) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			err := r.ParseForm()
-			w.Header().Set("Content-Type", "application/json")
-			if err != nil {
-				logAndWrite(err, "", w)
-				return
-			}
-			defer r.Body.Close()
-
-			un := r.FormValue("username")
-			unErrors := basicValidation("username", un, 3, 35)
-
-			userReq := slashdb.NewDataRequest("")
-			userReq.AddParts(
-				slashdb.Part{Name: "timesheet"},
-				slashdb.Part{
-					Name: "user",
-					Filter: slashdb.Filter{
-						Values: map[string][]string{"username": []string{un}},
-						Order:  []string{"username"},
-					},
-					Fields: []string{"username"},
-				},
-			)
-
-			userNames := []string{}
-			if err = sdbService.Get(r.Context(), userReq, &userNames); err != nil {
-				logAndWrite(err, fmt.Sprintf("couldn't find user %q or SlashDB instance unavailable", un), w)
-				return
-			}
-
-			if len(userNames) > 0 {
-				unErrors = append(unErrors, fmt.Sprintf("user %q exists, please select a diffrent user name", un))
-			}
-
-			validationData := map[string][]string{}
-			if len(unErrors) > 0 {
-				validationData["username"] = unErrors
-			}
-
-			email := r.FormValue("email")
-			emailErrors := basicValidation("email", email, 5, 45)
-			if len(emailErrors) > 0 {
-				validationData["email"] = emailErrors
-			}
-
-			passwd := r.FormValue("password")
-			passwdErrors := basicValidation("password", passwd, 6, 45)
-			if len(passwdErrors) > 0 {
-				validationData["password"] = passwdErrors
-			}
-
-			if len(validationData) > 0 {
-				writeValidationErrors(w, validationData)
-				return
-			}
-
-			userData := User{
-				Username: un,
-				Passwd:   genPassword(un+passwd, nil),
-				Email:    email,
-			}
-			userReq = slashdb.NewDataRequest("")
-			userReq.AddParts(
-				slashdb.Part{
-					Name:   "timesheet",
-					Fields: []string{"user"},
-				},
-			)
-			if _, err = sdbService.Create(r.Context(), userReq, userData); err != nil {
-				logAndWrite(err, fmt.Sprintf("couldn't create user %q SlashDB instance unavailable", un), w)
-				return
-			}
-
-			w.WriteHeader(http.StatusCreated)
-			w.Write([]byte(fmt.Sprintf("User %q was created successfully!", un)))
+		if r.Method != http.MethodPost {
+			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+			return
 		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if r != nil && r.Body != nil {
+			defer func() {
+				io.Copy(ioutil.Discard, r.Body)
+				r.Body.Close()
+			}()
+		}
+		if err := r.ParseForm(); err != nil {
+			log.Printf("failed to parse form: %v\n", err)
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
+
+		un := r.FormValue("username")
+		unErrors := basicValidation("username", un, 3, 35)
+
+		userReq := slashdb.NewDataRequest("")
+		userReq.AddParts(
+			slashdb.Part{Name: "timesheet"},
+			slashdb.Part{
+				Name: "user",
+				Filter: slashdb.Filter{
+					Values: map[string][]string{"username": []string{un}},
+					Order:  []string{"username"},
+				},
+				Fields: []string{"username"},
+			},
+		)
+		userReq.SetLimit(1)
+
+		userNames := []string{}
+		if err := sdbService.Get(r.Context(), userReq, &userNames); err != nil {
+			logAndWrite(err, fmt.Sprintf("couldn't find user %q or SlashDB instance unavailable", un), w)
+			return
+		}
+
+		if len(userNames) > 0 {
+			unErrors = append(unErrors, fmt.Sprintf("user %q exists, please select a diffrent user name", un))
+		}
+
+		validationData := map[string][]string{}
+		if len(unErrors) > 0 {
+			validationData["username"] = unErrors
+		}
+
+		email := r.FormValue("email")
+		emailErrors := basicValidation("email", email, 5, 45)
+		if len(emailErrors) > 0 {
+			validationData["email"] = emailErrors
+		}
+
+		passwd := r.FormValue("password")
+		passwdErrors := basicValidation("password", passwd, 6, 45)
+		if len(passwdErrors) > 0 {
+			validationData["password"] = passwdErrors
+		}
+		if r.FormValue("password2") != passwd {
+			validationData["password2"] = []string{"the password is different to the one above"}
+		}
+
+		if len(validationData) > 0 {
+			writeValidationErrors(w, validationData)
+			return
+		}
+
+		userData := User{
+			Username: un,
+			Passwd:   genPassword(un+passwd, nil),
+			Email:    email,
+		}
+		userReq = slashdb.NewDataRequest("")
+		userReq.AddParts(
+			slashdb.Part{
+				Name:   "timesheet",
+				Fields: []string{"user"},
+			},
+		)
+		if _, err := sdbService.Create(r.Context(), userReq, userData); err != nil {
+			logAndWrite(err, fmt.Sprintf("couldn't create user %q SlashDB instance unavailable", un), w)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(fmt.Sprintf("User %q was created successfully!", un)))
 	}
 }
 
@@ -169,79 +178,74 @@ func loginHandler(
 	sdbService slashdb.Service,
 ) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			err := r.ParseForm()
-			w.Header().Set("Content-Type", "application/json")
-			if err != nil {
-				logAndWrite(err, "", w)
-				return
-			}
-			defer r.Body.Close()
+		if r.Method != http.MethodPost {
+			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+			return
+		}
 
-			un := r.FormValue("username")
-			unErrors := basicValidation("username", un, 3, 35)
+		w.Header().Set("Content-Type", "application/json")
+		if r != nil && r.Body != nil {
+			defer func() {
+				io.Copy(ioutil.Discard, r.Body)
+				r.Body.Close()
+			}()
+		}
+		if err := r.ParseForm(); err != nil {
+			log.Printf("failed to parse form: %v\n", err)
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
 
-			userReq := slashdb.NewDataRequest("")
-			userReq.AddParts(
-				slashdb.Part{Name: "timesheet"},
-				slashdb.Part{
-					Name: "user",
-					Filter: slashdb.Filter{
-						Values: map[string][]string{
-							"username": []string{un},
-						},
+		un := r.FormValue("username")
+		userReq := slashdb.NewDataRequest("")
+		userReq.AddParts(
+			slashdb.Part{Name: "timesheet"},
+			slashdb.Part{
+				Name: "user",
+				Filter: slashdb.Filter{
+					Values: map[string][]string{
+						"username": []string{un},
 					},
 				},
-			)
+			},
+		)
 
-			userData := []User{}
-			if len(unErrors) == 0 {
-				if err = sdbService.Get(r.Context(), userReq, &userData); err != nil {
-					logAndWrite(err, fmt.Sprintf("couldn't find user %q or SlashDB instance unavailable", un), w)
-					return
-				}
-
-				if len(userData) != 1 {
-					unErrors = append(unErrors, "no such user")
-				}
-			}
-
-			validationData := map[string][]string{}
-			if len(unErrors) > 0 {
-				validationData["username"] = unErrors
-			}
-
-			passwd := r.FormValue("password")
-			passErrors := basicValidation("password", passwd, 6, 45)
-			if len(passErrors) > 0 {
-				validationData["password"] = passErrors
-			}
-
-			if len(validationData) > 0 {
-				writeValidationErrors(w, validationData)
-				return
-			}
-
-			dataUn := userData[0].Username
-			dataPasswd := userData[0].Passwd
-			encodedPass := genPassword(un+passwd, nil)
-			if dataUn != un || dataPasswd != encodedPass {
-				errMsg := "wrong username or password"
-				log.Printf(
-					"%s, expected: u: %q, p: %q, got: u: %q, p: %q\n", errMsg, dataUn, dataPasswd, un, encodedPass,
-				)
-				w.WriteHeader(http.StatusUnauthorized)
-				w.Write([]byte("{\"form\": \"" + errMsg + "\"}"))
-				return
-			}
-
-			st, err := genJWTToken(un, userData[0].ID, nil)
-			if err != nil {
-				logAndWrite(err, "error generating JWT token", w)
-				return
-			}
-			w.Write([]byte(`{"accessToken":"` + st + `"}`))
+		unErrors := []string{}
+		userData := []User{}
+		if err := sdbService.Get(r.Context(), userReq, &userData); err != nil || len(userData) != 1 {
+			log.Printf("couldn't find user %q or SlashDB instance unavailable: %v", un, err)
+			unErrors = append(unErrors, "no such user")
 		}
+
+		validationData := map[string][]string{}
+		if len(unErrors) > 0 {
+			validationData["username"] = unErrors
+		}
+
+		if len(validationData) > 0 {
+			writeValidationErrors(w, validationData)
+			return
+		}
+
+		dataUn := userData[0].Username
+		dataPasswd := userData[0].Passwd
+		encodedPass := genPassword(un+r.FormValue("password"), nil)
+		if dataUn != un || dataPasswd != encodedPass {
+			errMsg := "wrong username or password"
+			log.Printf(
+				"%s, expected: u: %q, p: %q, got: u: %q, p: %q\n", errMsg, dataUn, dataPasswd, un, encodedPass,
+			)
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"form":"` + errMsg + `"}`))
+			return
+		}
+
+		st, err := genJWTToken(un, userData[0].ID, nil)
+		if err != nil {
+			logAndWrite(err, "error generating JWT token", w)
+			return
+		}
+		w.Write([]byte(`{"accessToken":"` + st + `"}`))
 	}
 }
 
@@ -271,13 +275,18 @@ func authorizationMiddleware(
 				return nil, fmt.Errorf("token lacks 'id' claim")
 			}
 
-			userPath := baseURL + strconv.FormatFloat(userID.(float64), 'f', 0, 64)
+			userPath := baseURL + fmt.Sprintf("%.0f", userID)
 			userPathLen := len(userPath) + 1
 			// if: userID = 10
 			// and: r.URL.Path = "/db/timesheet/timesheet/user_id/10/project.json
 			// userPath = "/db/timesheet/timesheet/user_id/10/"
-			// then: check if r.URL.Path starts with userPath
-			if len(r.URL.Path) < userPathLen || (r.URL.Path[:userPathLen] != userPath+"/" && r.URL.Path[:userPathLen] != userPath+".") {
+			// then: check if r.URL.Path starts with uskerPath
+			if len(r.URL.Path) < userPathLen {
+				return nil, fmt.Errorf("restricted access to this resource")
+			}
+
+			baseUserPath := r.URL.Path[:userPathLen]
+			if baseUserPath != userPath+"/" && baseUserPath != userPath+"." {
 				return nil, fmt.Errorf("restricted access to this resource")
 			}
 

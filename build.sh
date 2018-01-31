@@ -2,11 +2,10 @@
 
 APP_NAME=timesheet
 
-# install requirements
-go get github.com/dgrijalva/jwt-go/...
-go get golang.org/x/crypto/pbkdf2
-go get github.com/jteeuwen/go-bindata/...
-go get github.com/elazarl/go-bindata-assetfs/...
+# make sure that govendor is installed
+go get -u github.com/kardianos/govendor
+# sync dependencies
+govendor sync
 
 # build assets bindata.go file
 go-bindata ./assets/... index.html
