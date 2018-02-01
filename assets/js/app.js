@@ -146,7 +146,7 @@
           };
         return authInfo;
       },
-      login: function() {
+      login: function($event) {
         var self = this;
 
         if (isFormValid(self._data)) {
@@ -252,7 +252,7 @@
       };
     },
     methods: {
-      isSamePass: function() {
+      isSamePass: function($event) {
         if (this.password.value === this.password2.value) {
           this.password2.errors.pop();
           return;
@@ -262,7 +262,7 @@
           this.password2.errors.push(diffPasswdMsg);
         }
       },
-      register: function() {
+      register: function($event) {
         var self = this;
 
         if (isFormValid(self._data)) {
@@ -333,7 +333,7 @@
         </div>
         `,
     methods: {
-      onLoggedIn: function(accessInfo) {
+      onLoggedIn: function(accessInfo, $event) {
         this.$emit("store-auth-info", accessInfo);
         this.$emit("set-view", "projects");
       }
@@ -433,7 +433,7 @@
         this.duration.value = Number(msToH(to - from).toFixed(2));
         return true;
       },
-      create: function() {
+      create: function($event) {
         if (this.localIsFormValid()) {
           var data = {
             duration: this.duration.value,
@@ -541,7 +541,7 @@
       };
     },
     methods: {
-      create: function() {
+      create: function($event) {
         if (isFormValid(this._data)) {
           var data = {
             name: this.name.value,
@@ -597,11 +597,11 @@
 
   Vue.component("RemoveBtn", {
     template: `
-        <button type="button" class="btn btn-sm" :class="btnClass" @click="confirmation = true">
+        <button type="button" class="btn btn-sm" :class="btnClass" @click="enableConfirmation">
             <span v-show="!confirmation">&times;</span>
             <span v-show="confirmation">
-                <span class="btn-link" @click.stop.self="onConfirm(); confirmation = false">yes</span>
-                <span class="btn-link" @click.stop.self="confirmation = false">no</span>
+                <span class="btn-link" @click.stop.self="wrappedOnConfirm">yes</span>
+                <span class="btn-link" @click.stop.self="disableConfirmation">no</span>
             </span>
         </button>
         `,
@@ -614,6 +614,18 @@
       return {
         confirmation: false
       };
+    },
+    methods: {
+      wrappedOnConfirm: function($event) {
+        this.onConfirm($event);
+        this.confirmation = false;
+      },
+      enableConfirmation: function($event) {
+        this.confirmation = true;
+      },
+      disableConfirmation: function($event) {
+        this.confirmation = false;
+      },
     },
     props: {
       onConfirm: {
@@ -694,12 +706,12 @@
       };
     },
     methods: {
-      addProject: function(project) {
+      addProject: function(project, $event) {
         this.projects.splice(0, 0, project);
       },
-      removeProject: function(pIdx) {
+      removeProject: function(pIdx, $event) {
         var self = this;
-        return function() {
+        return function($event) {
           var project = self.projects.splice(pIdx, 1)[0];
           if (project != null) {
             // first remove all the children timesheet entires
@@ -743,14 +755,14 @@
             project.timesheet = resp.data.timesheet.reverse();
           }, unauthorizedHandler);
       },
-      addTimesheet: function(project, timesheet) {
+      addTimesheet: function(project, timesheet, $event) {
         project.timesheet.splice(0, 0, timesheet);
         // reload and sync-up project data
         this.updateProjectData(project);
       },
-      removeTimesheet: function(project, timesheet, tIdx) {
+      removeTimesheet: function(project, timesheet, tIdx, $event) {
         var self = this;
-        return function() {
+        return function($event) {
           project.timesheet.splice(tIdx, 1);
           self.$http
             .delete(
@@ -835,7 +847,7 @@
       setView: function(viewName) {
         this.view = viewName;
       },
-      logOut: function() {
+      logOut: function($event) {
         this.deleteAuthInfo();
         this.setView("login");
       }
