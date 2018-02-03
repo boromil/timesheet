@@ -14,7 +14,7 @@ func SetupBasicHandlers(sdbDBName string, afs *assetfs.AssetFS) {
 	tmpData := struct{ SdbDBName string }{SdbDBName: sdbDBName}
 	http.HandleFunc("/app/", func(w http.ResponseWriter, r *http.Request) {
 		indexTmpl := template.New("index.html")
-		data, err := afs.Asset("index.html")
+		data, err := afs.Asset("templates/index.html")
 		if err != nil {
 			log.Printf("afs.Asset: %v\n", err)
 		}

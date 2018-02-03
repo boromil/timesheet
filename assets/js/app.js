@@ -52,9 +52,12 @@
         errors.push(errMsg);
       }
       return false;
-    } else if (hasErrorMsg) {
+    }
+
+    if (hasErrorMsg) {
       errors.splice(errMsgIdx, 1);
     }
+
     return true;
   };
 
@@ -103,7 +106,7 @@
                 <label for="username">User name</label>
                 <input type="text" class="form-control"
                        :class="{'form-control-danger': username.errors.length > 0}"
-                       id="username"
+                       id="login-username"
                        v-model.trim="username.value"
                        placeholder="enter user name">
                 <input-errors :errors="username.errors"/>
@@ -112,7 +115,7 @@
                 <label for="password">Password</label>
                 <input type="password" class="form-control"
                        :class="{'form-control-danger': username.errors.length > 0}"
-                       id="password"
+                       id="login-password"
                        v-model.trim="password.value"
                        placeholder="enter password">
                 <input-errors :errors="password.errors"/>
@@ -149,32 +152,36 @@
       login: function($event) {
         var self = this;
 
-        if (isFormValid(self._data)) {
-          var ks = Object.keys(self._data);
-
-          $.ajax({
-            url: "/app/login/",
-            data: {
-              username: self.username.value,
-              password: self.password.value
-            },
-            dataType: "json",
-            type: "POST",
-            success: function(resp) {
-              resetFields(self, ks);
-              self.$emit("logged-in", self.createAuthInfo(resp.accessToken));
-            },
-            error: function(resp) {
-              if (resp.responseJSON != null) {
-                var k;
-                for (var i = 0, l = ks.length; i < l; i++) {
-                  k = ks[i];
-                  self[k].errors = resp.responseJSON[k] || [];
-                }
-              }
-            }
-          });
+        if (!isFormValid(self._data)) {
+          return;
         }
+
+        var ks = Object.keys(self._data),
+          data = {
+            username: self.username.value,
+            password: self.password.value
+          };
+
+        this.$http.post("/app/login/", data, { emulateJSON: true }).then(
+          function(resp) {
+            resp.json().then(function(jsonData) {
+              self.$emit(
+                "logged-in",
+                self.createAuthInfo(jsonData.accessToken)
+              );
+              resetFields(self, ks);
+            });
+          },
+          function(resp) {
+            resp.json().then(function(jsonData) {
+              var k;
+              for (var i = 0, l = ks.length; i < l; i++) {
+                k = ks[i];
+                self[k].errors = jsonData[k] || [];
+              }
+            });
+          }
+        );
       }
     }
   });
@@ -186,7 +193,7 @@
                 <label for="username">User name</label>
                 <input type="text" class="form-control"
                        :class="{'form-control-danger': username.errors.length > 0}"
-                       id="username"
+                       id="reg-username"
                        v-model.trim="username.value"
                        placeholder="enter your new user name">
                 <input-errors :errors="username.errors"/>
@@ -196,7 +203,7 @@
                 <input type="email"
                        :class="{'form-control-danger': email.errors.length > 0}"
                        class="form-control"
-                       id="email"
+                       id="reg-email"
                        v-model.trim="email.value"
                        placeholder="enter your email address">
                 <input-errors :errors="email.errors"/>
@@ -206,7 +213,7 @@
                 <input type="password" class="form-control"
                        :class="{'form-control-danger': password.errors.length > 0}"
                        @keyup="isSamePass"
-                       id="password"
+                       id="reg-password"
                        v-model.trim="password.value"
                        placeholder="enter user password">
                 <input-errors :errors="password.errors"/>
@@ -215,7 +222,7 @@
                 <input type="password" class="form-control"
                        :class="{'form-control-danger': password2.errors.length > 0}"
                        @keyup="isSamePass"
-                       id="password2"
+                       id="reg-password2"
                        v-model.trim="password2.value"
                        placeholder="re-enter user password">
                 <input-errors :errors="password2.errors"/>
@@ -265,38 +272,39 @@
       register: function($event) {
         var self = this;
 
-        if (isFormValid(self._data)) {
-          var ks = Object.keys(self._data),
-            data = {
-              username: this.username.value,
-              email: this.email.value,
-              password: this.password.value,
-              password2: this.password2.value
-            };
+        if (!isFormValid(self._data)) {
+          return;
+        }
 
-          $.ajax({
-            url: "/app/reg/",
-            data: data,
-            dataType: "json",
-            type: "POST",
-            success: function(resp) {
+        var ks = Object.keys(self._data),
+          data = {
+            username: this.username.value,
+            email: this.email.value,
+            password: this.password.value,
+            password2: this.password2.value
+          };
+
+        this.$http.post("/app/reg/", data, { emulateJSON: true }).then(
+          function(resp) {
+            resetFields(self, ks);
+            self.$emit("registered");
+          },
+          function(resp) {
+            if (resp.ok) {
               resetFields(self, ks);
               self.$emit("registered");
-            },
-            error: function(resp) {
-              if (resp.status != 201 && resp.responseJSON != null) {
-                var k;
-                for (var i = 0, l = ks.length; i < l; i++) {
-                  k = ks[i];
-                  self[k].errors = resp.responseJSON[k] || [];
-                }
-              } else {
-                resetFields(self, ks);
-                self.$emit("registered");
-              }
+              return;
             }
-          });
-        }
+
+            resp.json().then(function(jsonData) {
+              var k;
+              for (var i = 0, l = ks.length; i < l; i++) {
+                k = ks[i];
+                self[k].errors = jsonData[k] || [];
+              }
+            });
+          }
+        );
       }
     }
   });
@@ -394,8 +402,7 @@
         return now.toDateTimeInputValue();
       },
       localIsFormValid: function() {
-        var tmp = isFormValid(this._data);
-        if (!tmp) {
+        if (!isFormValid(this._data)) {
           return false;
         }
 
@@ -434,33 +441,35 @@
         return true;
       },
       create: function($event) {
-        if (this.localIsFormValid()) {
-          var data = {
-            duration: this.duration.value,
-            accomplishments: this.accomplishments.value,
-            project_id: this.project.id,
-            user_id: this.userId
-          };
-
-          this.$http
-            .post(getURL("/timesheet/user_id/" + this.userId + ".json"), data)
-            .then(
-              function(resp) {
-                var ld = extend(
-                  {
-                    date: new Date().toDateTimeInputValue(19)
-                  },
-                  data
-                );
-                this.$emit("timesheet-created", this.project, ld);
-                resetFields(this, ["accomplishments"]);
-              },
-              function(resp) {
-                unauthorizedHandler(resp);
-                console.log(resp);
-              }
-            );
+        if (!this.localIsFormValid()) {
+          return;
         }
+
+        var data = {
+          duration: this.duration.value,
+          accomplishments: this.accomplishments.value,
+          project_id: this.project.id,
+          user_id: this.userId
+        };
+
+        this.$http
+          .post(getURL("/timesheet/user_id/" + this.userId + ".json"), data)
+          .then(
+            function(resp) {
+              var ld = extend(
+                {
+                  date: new Date().toDateTimeInputValue(19)
+                },
+                data
+              );
+              this.$emit("timesheet-created", this.project, ld);
+              resetFields(this, ["accomplishments"]);
+            },
+            function(resp) {
+              unauthorizedHandler(resp);
+              console.log(resp);
+            }
+          );
       }
     },
     data: function() {
@@ -542,49 +551,51 @@
     },
     methods: {
       create: function($event) {
-        if (isFormValid(this._data)) {
-          var data = {
-            name: this.name.value,
-            description: this.description.value
-          };
-
-          this.$http
-            .post(
-              getURL("/timesheet/user_id/" + this.userId + "/project.json"),
-              data
-            )
-            .then(function(resp) {
-              var tdata = {
-                project_id: resp.data.split("/").pop(),
-                user_id: this.userId,
-                duration: 0,
-                accomplishments: ""
-              };
-
-              this.$http
-                .post(
-                  getURL("/timesheet/user_id/" + this.userId + ".json"),
-                  tdata
-                )
-                .then(
-                  function(resp) {
-                    var ld = extend(
-                      {
-                        id: Number(tdata.project_id),
-                        timesheet: []
-                      },
-                      data
-                    );
-                    this.$emit("project-created", ld);
-                    resetFields(this, Object.keys(data));
-                  },
-                  function(resp) {
-                    unauthorizedHandler(resp);
-                    console.log(resp);
-                  }
-                );
-            });
+        if (!isFormValid(this._data)) {
+          return;
         }
+
+        var data = {
+          name: this.name.value,
+          description: this.description.value
+        };
+
+        this.$http
+          .post(
+            getURL("/timesheet/user_id/" + this.userId + "/project.json"),
+            data
+          )
+          .then(function(resp) {
+            var tdata = {
+              project_id: resp.data.split("/").pop(),
+              user_id: this.userId,
+              duration: 0,
+              accomplishments: ""
+            };
+
+            this.$http
+              .post(
+                getURL("/timesheet/user_id/" + this.userId + ".json"),
+                tdata
+              )
+              .then(
+                function(resp) {
+                  var ld = extend(
+                    {
+                      id: Number(tdata.project_id),
+                      timesheet: []
+                    },
+                    data
+                  );
+                  this.$emit("project-created", ld);
+                  resetFields(this, Object.keys(data));
+                },
+                function(resp) {
+                  unauthorizedHandler(resp);
+                  console.log(resp);
+                }
+              );
+          });
       }
     },
     props: {
@@ -625,7 +636,7 @@
       },
       disableConfirmation: function($event) {
         this.confirmation = false;
-      },
+      }
     },
     props: {
       onConfirm: {
@@ -713,31 +724,34 @@
         var self = this;
         return function($event) {
           var project = self.projects.splice(pIdx, 1)[0];
-          if (project != null) {
-            // first remove all the children timesheet entires
-            self.$http
-              .delete(
-                getURL(
-                  "/timesheet/user_id/" +
-                    self.userId +
-                    "/project_id/" +
-                    project.id
-                )
-              )
-              .then(function(resp) {
-                // then remove the project itself
-                self.$http
-                  .delete(
-                    getURL(
-                      "/timesheet/user_id/" +
-                        self.userId +
-                        "/project/id/" +
-                        project.id
-                    )
-                  )
-                  .then(function(resp) {}, unauthorizedHandler);
-              }, unauthorizedHandler);
+
+          if (project == null) {
+            return;
           }
+
+          // first remove all the children timesheet entires
+          self.$http
+            .delete(
+              getURL(
+                "/timesheet/user_id/" +
+                  self.userId +
+                  "/project_id/" +
+                  project.id
+              )
+            )
+            .then(function(resp) {
+              // then remove the project itself
+              self.$http
+                .delete(
+                  getURL(
+                    "/timesheet/user_id/" +
+                      self.userId +
+                      "/project/id/" +
+                      project.id
+                  )
+                )
+                .then(function(resp) {}, unauthorizedHandler);
+            }, unauthorizedHandler);
         };
       },
       updateProjectData: function(project) {
@@ -827,14 +841,17 @@
       restoreAuthInfo: function(key) {
         key = key == null ? this.lsAuthInfoKey : key;
         var authInfoStr = localStorage.getItem(key);
-        if (authInfoStr != null) {
-          this.authInfo = JSON.parse(authInfoStr);
-          Vue.http.headers.common["Authorization"] =
-            "Bearer " + this.authInfo.accessToken;
-          this.userId = this.authInfo.payload.id;
-          this.userName = this.authInfo.payload.username;
-          this.setView("projects");
+
+        if (authInfoStr == null) {
+          return;
         }
+
+        this.authInfo = JSON.parse(authInfoStr);
+        Vue.http.headers.common["Authorization"] =
+          "Bearer " + this.authInfo.accessToken;
+        this.userId = this.authInfo.payload.id;
+        this.userName = this.authInfo.payload.username;
+        this.setView("projects");
       },
       deleteAuthInfo: function(key) {
         delete this.$http.headers.common.Authorization;
