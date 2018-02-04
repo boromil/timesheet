@@ -877,7 +877,8 @@
       authInfo: {},
       userId: "",
       userName: "",
-      lsAuthInfoKey: "timesheetAuthInfo"
+      lsAuthInfoKey: "timesheetAuthInfo",
+      navCopllapsed: true
     }
   });
 })();
