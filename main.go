@@ -45,8 +45,8 @@ func main() {
 		pa.SdbInstanceAddr,
 		pa.SdbAPIKey,
 		pa.SdbAPIValue,
-		"__href",
-		true,
+		pa.RefIDPrefix,
+		pa.EchoMode,
 		&http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
@@ -60,7 +60,7 @@ func main() {
 		},
 	)
 	if err != nil {
-		log.Fatalf("error initing slashdb service: %v\n", err)
+		log.Fatalf("error initing SlashDB service: %v\n", err)
 	}
 	transport.SetupAuthHandlers(sdbService)
 

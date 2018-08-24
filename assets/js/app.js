@@ -1,7 +1,7 @@
-(function() {
+(function () {
   "use strict";
 
-  Date.prototype.toDateTimeInputValue = function(cutBy) {
+  Date.prototype.toDateTimeInputValue = function (cutBy) {
     if (cutBy == null) {
       cutBy = 16;
     }
@@ -10,13 +10,13 @@
     return local.toJSON().slice(0, cutBy);
   };
 
-  var getURL = function(s) {
+  var getURL = function (s) {
     return window.timesheet.baseURL + s;
   };
 
   // some utility functions
 
-  var extend = function(obj1, obj2) {
+  var extend = function (obj1, obj2) {
     // extends object with the content of another
     for (
       var idx = 0, keys = Object.keys(obj2), len = keys.length, key;
@@ -29,12 +29,12 @@
     return obj1;
   };
 
-  var msToH = function(ms) {
+  var msToH = function (ms) {
     // converts milliseconds to hours
     return ms * 2.777777777777778e-7;
   };
 
-  var resetFields = function(target, items) {
+  var resetFields = function (target, items) {
     var item;
     for (var i = 0, l = items.length; i < l; i++) {
       item = target[items[i]];
@@ -43,7 +43,7 @@
     }
   };
 
-  var checkIfValid = function(predicate, errors, errMsg) {
+  var checkIfValid = function (predicate, errors, errMsg) {
     var errMsgIdx = errors.indexOf(errMsg),
       hasErrorMsg = errMsgIdx > -1;
 
@@ -61,13 +61,13 @@
     return true;
   };
 
-  var isFormValid = function(obj) {
+  var isFormValid = function (obj) {
     var formValid = true,
       keys = Object.keys(obj),
       reqMsg = "this field is required",
       field;
 
-    var predicateFn = function(f) {
+    var predicateFn = function (f) {
       return (f.required || false) && !Boolean(f.value);
     };
 
@@ -80,7 +80,7 @@
     return formValid;
   };
 
-  var unauthorizedHandler = function(resp) {
+  var unauthorizedHandler = function (resp) {
     if (resp.status == 401) {
       this.$emit("bad-token");
     }
@@ -92,7 +92,7 @@
     props: {
       errors: {
         type: Array,
-        default: function() {
+        default: function () {
           return [];
         }
       }
@@ -123,7 +123,7 @@
             <button type="submit" class="btn btn-primary">GO!</button>
         </form>
         `,
-    data: function() {
+    data: function () {
       return {
         username: {
           value: "",
@@ -141,7 +141,7 @@
       };
     },
     methods: {
-      createAuthInfo: function(accessToken) {
+      createAuthInfo: function (accessToken) {
         var payload = JSON.parse(atob(accessToken.split(".")[1])),
           authInfo = {
             accessToken: accessToken,
@@ -149,7 +149,7 @@
           };
         return authInfo;
       },
-      login: function($event) {
+      login: function ($event) {
         var self = this;
 
         if (!isFormValid(self._data)) {
@@ -163,8 +163,8 @@
           };
 
         this.$http.post("/app/login/", data, { emulateJSON: true }).then(
-          function(resp) {
-            resp.json().then(function(jsonData) {
+          function (resp) {
+            resp.json().then(function (jsonData) {
               self.$emit(
                 "logged-in",
                 self.createAuthInfo(jsonData.accessToken)
@@ -172,8 +172,8 @@
               resetFields(self, ks);
             });
           },
-          function(resp) {
-            resp.json().then(function(jsonData) {
+          function (resp) {
+            resp.json().then(function (jsonData) {
               var k;
               for (var i = 0, l = ks.length; i < l; i++) {
                 k = ks[i];
@@ -231,7 +231,7 @@
             <button type="submit" class="btn btn-primary">GO!</button>
         </form>
         `,
-    data: function() {
+    data: function () {
       return {
         username: {
           value: "",
@@ -259,7 +259,7 @@
       };
     },
     methods: {
-      isSamePass: function($event) {
+      isSamePass: function ($event) {
         if (this.password.value === this.password2.value) {
           this.password2.errors.pop();
           return;
@@ -269,7 +269,7 @@
           this.password2.errors.push(diffPasswdMsg);
         }
       },
-      register: function($event) {
+      register: function ($event) {
         var self = this;
 
         if (!isFormValid(self._data)) {
@@ -285,18 +285,18 @@
           };
 
         this.$http.post("/app/reg/", data, { emulateJSON: true }).then(
-          function(resp) {
+          function (resp) {
             resetFields(self, ks);
             self.$emit("registered");
           },
-          function(resp) {
+          function (resp) {
             if (resp.ok) {
               resetFields(self, ks);
               self.$emit("registered");
               return;
             }
 
-            resp.json().then(function(jsonData) {
+            resp.json().then(function (jsonData) {
               var k;
               for (var i = 0, l = ks.length; i < l; i++) {
                 k = ks[i];
@@ -341,7 +341,7 @@
         </div>
         `,
     methods: {
-      onLoggedIn: function(accessInfo, $event) {
+      onLoggedIn: function (accessInfo, $event) {
         this.$emit("store-auth-info", accessInfo);
         this.$emit("set-view", "projects");
       }
@@ -393,7 +393,7 @@
         </div>
         `,
     methods: {
-      getDateTimeNow: function(minOffset) {
+      getDateTimeNow: function (minOffset) {
         if (minOffset == null) {
           minOffset = 0;
         }
@@ -401,7 +401,7 @@
         now.setMinutes(now.getMinutes() + minOffset);
         return now.toDateTimeInputValue();
       },
-      localIsFormValid: function() {
+      localIsFormValid: function () {
         if (!isFormValid(this._data)) {
           return false;
         }
@@ -440,7 +440,7 @@
         this.duration.value = Number(msToH(to - from).toFixed(2));
         return true;
       },
-      create: function($event) {
+      create: function ($event) {
         if (!this.localIsFormValid()) {
           return;
         }
@@ -455,7 +455,7 @@
         this.$http
           .post(getURL("/timesheet/user_id/" + this.userId + ".json"), data)
           .then(
-            function(resp) {
+            function (resp) {
               var ld = extend(
                 {
                   date: new Date().toDateTimeInputValue(19)
@@ -465,14 +465,14 @@
               this.$emit("timesheet-created", this.project, ld);
               resetFields(this, ["accomplishments"]);
             },
-            function(resp) {
+            function (resp) {
               unauthorizedHandler(resp);
               console.log(resp);
             }
           );
       }
     },
-    data: function() {
+    data: function () {
       return {
         durationFrom: {
           value: this.getDateTimeNow(),
@@ -535,7 +535,7 @@
             </div>
         </div>
         `,
-    data: function() {
+    data: function () {
       return {
         name: {
           value: "",
@@ -550,7 +550,7 @@
       };
     },
     methods: {
-      create: function($event) {
+      create: function ($event) {
         if (!isFormValid(this._data)) {
           return;
         }
@@ -565,7 +565,7 @@
             getURL("/timesheet/user_id/" + this.userId + "/project.json"),
             data
           )
-          .then(function(resp) {
+          .then(function (resp) {
             var tdata = {
               project_id: resp.data.split("/").pop(),
               user_id: this.userId,
@@ -579,7 +579,7 @@
                 tdata
               )
               .then(
-                function(resp) {
+                function (resp) {
                   var ld = extend(
                     {
                       id: Number(tdata.project_id),
@@ -590,7 +590,7 @@
                   this.$emit("project-created", ld);
                   resetFields(this, Object.keys(data));
                 },
-                function(resp) {
+                function (resp) {
                   unauthorizedHandler(resp);
                   console.log(resp);
                 }
@@ -617,24 +617,24 @@
         </button>
         `,
     computed: {
-      btnClass: function() {
+      btnClass: function () {
         return this.confirmation ? "btn-secondary" : "btn-outline-danger";
       }
     },
-    data: function() {
+    data: function () {
       return {
         confirmation: false
       };
     },
     methods: {
-      wrappedOnConfirm: function($event) {
+      wrappedOnConfirm: function ($event) {
         this.onConfirm($event);
         this.confirmation = false;
       },
-      enableConfirmation: function($event) {
+      enableConfirmation: function ($event) {
         this.confirmation = true;
       },
-      disableConfirmation: function($event) {
+      disableConfirmation: function ($event) {
         this.confirmation = false;
       }
     },
@@ -688,18 +688,18 @@
             <div class="col-3 col-md-2 col-sm-1"></div>
         </div>
         `,
-    mounted: function() {
+    mounted: function () {
       if (this.userId !== -1) {
         // get all projects and their timesheet-s
         this.$http
           .get(
             getURL(
               "/timesheet/user_id/" +
-                this.userId +
-                "/project.json?depth=1&sort=timestamp"
+              this.userId +
+              "/project.json?depth=1&sort=timestamp"
             )
           )
-          .then(function(resp) {
+          .then(function (resp) {
             var projects = resp.data.reverse();
             for (var i = 0, l = projects.length, project; i < l; i++) {
               project = projects[i];
@@ -710,19 +710,19 @@
           }, unauthorizedHandler);
       }
     },
-    data: function() {
+    data: function () {
       return {
         projects: [],
         loading: true
       };
     },
     methods: {
-      addProject: function(project, $event) {
+      addProject: function (project, $event) {
         this.projects.splice(0, 0, project);
       },
-      removeProject: function(pIdx, $event) {
+      removeProject: function (pIdx, $event) {
         var self = this;
-        return function($event) {
+        return function ($event) {
           var project = self.projects.splice(pIdx, 1)[0];
 
           if (project == null) {
@@ -734,77 +734,77 @@
             .delete(
               getURL(
                 "/timesheet/user_id/" +
-                  self.userId +
-                  "/project_id/" +
-                  project.id
+                self.userId +
+                "/project_id/" +
+                project.id
               )
             )
-            .then(function(resp) {
+            .then(function (resp) {
               // then remove the project itself
               self.$http
                 .delete(
                   getURL(
                     "/timesheet/user_id/" +
-                      self.userId +
-                      "/project/id/" +
-                      project.id
+                    self.userId +
+                    "/project/id/" +
+                    project.id
                   )
                 )
-                .then(function(resp) {}, unauthorizedHandler);
+                .then(function (resp) { }, unauthorizedHandler);
             }, unauthorizedHandler);
         };
       },
-      updateProjectData: function(project) {
+      updateProjectData: function (project) {
         this.$http
           .get(
             getURL(
               "/timesheet/user_id/" +
-                this.userId +
-                "/project/id/" +
-                project.id +
-                "?depth=1"
+              this.userId +
+              "/project/id/" +
+              project.id +
+              "?depth=1"
             )
           )
-          .then(function(resp) {
+          .then(function (resp) {
             project.timesheet = resp.data.timesheet.reverse();
           }, unauthorizedHandler);
       },
-      addTimesheet: function(project, timesheet, $event) {
+      addTimesheet: function (project, timesheet, $event) {
         project.timesheet.splice(0, 0, timesheet);
         // reload and sync-up project data
         this.updateProjectData(project);
       },
-      removeTimesheet: function(project, timesheet, tIdx, $event) {
+      removeTimesheet: function (project, timesheet, tIdx, $event) {
         var self = this;
-        return function($event) {
+        return function ($event) {
           project.timesheet.splice(tIdx, 1);
           self.$http
             .delete(
               getURL(
                 "/timesheet/user_id/" +
-                  self.userId +
-                  "/project_id/" +
-                  project.id +
-                  "/date/" +
-                  timesheet.date
+                self.userId +
+                "/project_id/" +
+                project.id +
+                "/date/" +
+                timesheet.date
               )
             )
-            .then(function(resp) {}, unauthorizedHandler);
+            .then(function (resp) { }, unauthorizedHandler);
         };
       },
-      sumDuration: function(project) {
+      sumDuration: function (project) {
         var tmp = project.timesheet
-          .map(function(el) {
+          .map(function (el) {
             return el.duration || 0;
           })
-          .reduce(function(a, b) {
+          .reduce(function (a, b) {
             return a + b;
           }, 0);
         return Number(tmp.toFixed(2));
       }
     },
     filters: {
-      formatDateTime: function(value) {
+      formatDateTime: function (value) {
         var d = new Date(value).toDateTimeInputValue().split("T");
         return d[0] + ", " + d[1];
       }
@@ -830,7 +830,7 @@
   var app = new Vue({
     el: "#app",
     methods: {
-      storeAuthInfo: function(authInfo) {
+      storeAuthInfo: function (authInfo) {
         Vue.http.headers.common["Authorization"] =
           "Bearer " + authInfo.accessToken;
         this.authInfo = authInfo;
@@ -838,7 +838,7 @@
         this.userName = authInfo.payload.username;
         localStorage.setItem(this.lsAuthInfoKey, JSON.stringify(authInfo));
       },
-      restoreAuthInfo: function(key) {
+      restoreAuthInfo: function (key) {
         key = key == null ? this.lsAuthInfoKey : key;
         var authInfoStr = localStorage.getItem(key);
 
@@ -853,7 +853,7 @@
         this.userName = this.authInfo.payload.username;
         this.setView("projects");
       },
-      deleteAuthInfo: function(key) {
+      deleteAuthInfo: function (key) {
         delete this.$http.headers.common.Authorization;
         this.authInfo = {};
         this.userId = "";
@@ -861,15 +861,15 @@
         key = key == null ? this.lsAuthInfoKey : key;
         localStorage.removeItem(key);
       },
-      setView: function(viewName) {
+      setView: function (viewName) {
         this.view = viewName;
       },
-      logOut: function($event) {
+      logOut: function ($event) {
         this.deleteAuthInfo();
         this.setView("login");
       }
     },
-    mounted: function() {
+    mounted: function () {
       this.restoreAuthInfo(this.lsAuthInfoKey);
     },
     data: {

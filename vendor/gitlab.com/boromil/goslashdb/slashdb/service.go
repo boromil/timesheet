@@ -15,7 +15,7 @@ type Doer interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// Service - main SlashDB client
+// Service - main SlashDB service API interface
 type Service interface {
 	ResourceConfigManager
 	UserConfigManager

@@ -33,16 +33,16 @@
 			"revisionTime": "2017-12-16T07:03:16Z"
 		},
 		{
-			"checksumSHA1": "kQ3wDxcSkEH5CHiBju7tH9hjc/c=",
+			"checksumSHA1": "OZ+mEumgCL7QAwpig3tRnh9jnac=",
 			"path": "gitlab.com/boromil/goslashdb/slashdb",
-			"revision": "d275fca29f3fdebc0cf5e19c0c646c8e2fdc8902",
-			"revisionTime": "2018-01-21T15:39:06Z"
+			"revision": "4662685ee56b9fdbeb403f7f78a27c5d220c73d5",
+			"revisionTime": "2018-03-31T00:17:04Z"
 		},
 		{
 			"checksumSHA1": "D3cKOiGYiwT0RUFAtI2fN43OViw=",
 			"path": "gitlab.com/boromil/goslashdb/types",
-			"revision": "3de36870d17efa57a6954bf89bc483474286429d",
-			"revisionTime": "2018-01-21T11:26:11Z"
+			"revision": "4662685ee56b9fdbeb403f7f78a27c5d220c73d5",
+			"revisionTime": "2018-03-31T00:17:04Z"
 		},
 		{
 			"checksumSHA1": "1MGpGDQqnUoRpv7VEcQrXOBydXE=",

@@ -8,7 +8,7 @@ go get -u github.com/kardianos/govendor
 govendor sync
 
 # build assets bindata.go file
-go-bindata ./assets/... index.html
+go-bindata ./assets/... ./templates/index.html
 
 # build executable for linux, osx and windows
 GOOS=linux GOARCH=amd64 go build -o $APP_NAME-linux64

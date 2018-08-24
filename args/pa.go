@@ -9,16 +9,18 @@ import (
 
 // ParsedArgs - container for parsed CLI args.
 type ParsedArgs struct {
-	Interf          string
-	Port            uint
-	Address         string
-	SdbInstanceAddr string
-	SdbDBName       string
-	SdbAPIKey       string
-	SdbAPIValue     string
+	Port uint
+	Interf,
+	Address,
+	SdbInstanceAddr,
+	SdbDBName,
+	SdbAPIKey,
+	SdbAPIValue,
+	RefIDPrefix string
+	EchoMode bool
 }
 
-// ParseArgs - parses the command line arguments and populates the ParsedArgs object with the outcome
+// Parse - parses the command line arguments and populates the ParsedArgs object with the outcome
 func Parse() *ParsedArgs {
 	pa := &ParsedArgs{}
 
@@ -26,6 +28,9 @@ func Parse() *ParsedArgs {
 	flag.UintVar(&pa.Port, "port", 8000, "local port to serve on")
 	flag.StringVar(&pa.SdbInstanceAddr, "sdb-address", "https://demo.slashdb.com", "SlashDB instance address")
 	flag.StringVar(&pa.SdbDBName, "sdb-dbname", "timesheet", "SlashDB DB name i.e. https://demo.slashdb.com/db/>>timesheet<<")
+	flag.StringVar(&pa.RefIDPrefix, "sdb-ref-id-prefix", "__href", "SlashDB's object ref URL prefix")
+	flag.BoolVar(&pa.EchoMode, "echo-mode", true, "printout SlashDB's connection info - usefull for debugging")
+
 	var sdbAPIKey string
 	flag.StringVar(
 		&sdbAPIKey,
