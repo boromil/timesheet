@@ -10,14 +10,12 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/boromil/timesheet/args"
 	transport "github.com/boromil/timesheet/transport"
-	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"gitlab.com/boromil/goslashdb/slashdb"
 )
 
 func main() {
-	pa := args.Parse()
+	parsedArgs := Parse()
 
 	appCtx, cancelCtx := context.WithCancel(context.Background())
 	defer cancelCtx()
@@ -25,7 +23,7 @@ func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
 
-	s := &http.Server{Addr: pa.Address, Handler: nil}
+	s := &http.Server{Addr: parsedArgs.Address, Handler: nil}
 
 	go func() {
 		<-signals
@@ -36,34 +34,48 @@ func main() {
 		}
 	}()
 
-	transport.SetupReverseProxy(pa.SdbDBName, pa.SdbInstanceAddr, pa.SdbAPIKey, pa.SdbAPIValue)
-	afs := &assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo, Prefix: ""}
-	transport.SetupBasicHandlers(pa.SdbDBName, afs)
+	fmt.Println(AssetNames())
 
-	var sdbService slashdb.Service
-	sdbService, err := slashdb.NewService(
-		pa.SdbInstanceAddr,
-		pa.SdbAPIKey,
-		pa.SdbAPIValue,
-		pa.RefIDPrefix,
-		pa.EchoMode,
-		&http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-				ResponseHeaderTimeout: time.Second * 10,
-				IdleConnTimeout:       time.Second * 10,
-				MaxIdleConns:          30,
-				MaxIdleConnsPerHost:   3,
+	err := transport.SetupReverseProxy(
+		parsedArgs.SdbDBName,
+		parsedArgs.SdbInstanceAddr,
+		parsedArgs.SdbAPIKey,
+		parsedArgs.SdbAPIValue,
+	)
+	if err != nil {
+		log.Fatalf("transport.SetupReverseProxy: %v", err)
+	}
+
+	err = transport.SetupBasicHandlers(parsedArgs.SdbDBName, AssetFile())
+	if err != nil {
+		log.Fatalf("transport.SetupBasicHandlers: %v", err)
+	}
+
+	externalHTTPClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
 			},
+			ResponseHeaderTimeout: time.Second * 10,
+			IdleConnTimeout:       time.Second * 10,
+			MaxIdleConns:          30,
+			MaxIdleConnsPerHost:   3,
 		},
+	}
+
+	sdbService, err := slashdb.NewService(
+		parsedArgs.SdbInstanceAddr,
+		parsedArgs.SdbAPIKey,
+		parsedArgs.SdbAPIValue,
+		parsedArgs.RefIDPrefix,
+		parsedArgs.EchoMode,
+		externalHTTPClient,
 	)
 	if err != nil {
 		log.Fatalf("error initing SlashDB service: %v\n", err)
 	}
-	transport.SetupAuthHandlers(sdbService)
+	transport.Init(sdbService)
 
-	fmt.Printf("Serving on http://%s/app/\n", pa.Address)
+	fmt.Printf("Serving on http://%s/app/\n", parsedArgs.Address)
 	log.Fatal(s.ListenAndServe())
 }

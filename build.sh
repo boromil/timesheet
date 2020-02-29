@@ -2,13 +2,10 @@
 
 APP_NAME=timesheet
 
-# make sure that govendor is installed
-go get -u github.com/kardianos/govendor
-# sync dependencies
-govendor sync
+go get -u -v github.com/go-bindata/go-bindata/...@v3.1.2
 
 # build assets bindata.go file
-go-bindata ./assets/... ./templates/index.html
+$GOPATH/bin/go-bindata -fs ./assets/... ./templates
 
 # build executable for linux, osx and windows
 GOOS=linux GOARCH=amd64 go build -o $APP_NAME-linux64

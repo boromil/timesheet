@@ -162,7 +162,7 @@
             password: self.password.value
           };
 
-        this.$http.post("/app/login/", data, { emulateJSON: true }).then(
+        this.$http.post("/app/login", data, { emulateJSON: true }).then(
           function (resp) {
             resp.json().then(function (jsonData) {
               self.$emit(
@@ -284,7 +284,7 @@
             password2: this.password2.value
           };
 
-        this.$http.post("/app/reg/", data, { emulateJSON: true }).then(
+        this.$http.post("/app/reg", data, { emulateJSON: true }).then(
           function (resp) {
             resetFields(self, ks);
             self.$emit("registered");
@@ -878,7 +878,7 @@
       userId: "",
       userName: "",
       lsAuthInfoKey: "timesheetAuthInfo",
-      navCopllapsed: true
+      navCollapsed: true
     }
   });
 })();

@@ -1,38 +1,56 @@
 package transport
 
 import (
+	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-
-	assetfs "github.com/elazarl/go-bindata-assetfs"
 )
 
-func SetupBasicHandlers(sdbDBName string, afs *assetfs.AssetFS) {
-	tmpData := struct{ SdbDBName string }{SdbDBName: sdbDBName}
+// SetupBasicHandlers setups page index and static assets filestystem
+func SetupBasicHandlers(sdbDBName string, afs http.FileSystem) error {
+	tmplData := struct{ SdbDBName string }{SdbDBName: sdbDBName}
+	indexTmpl := template.New("index.html")
+	indexFile, err := afs.Open("templates/index.html")
+	if err != nil {
+		return fmt.Errorf("afs.Open: %w", err)
+	}
+	defer indexFile.Close()
+
+	templateData, err := ioutil.ReadAll(indexFile)
+	if err != nil {
+		return fmt.Errorf("ioutil.ReadAll: %w", err)
+	}
+
+	if _, err = indexTmpl.Parse(string(templateData)); err != nil {
+		return fmt.Errorf("indexTmpl.Parse: %w", err)
+	}
+
 	http.HandleFunc("/app/", func(w http.ResponseWriter, r *http.Request) {
-		indexTmpl := template.New("index.html")
-		data, err := afs.Asset("templates/index.html")
-		if err != nil {
-			log.Printf("afs.Asset: %v\n", err)
-		}
-		if _, err = indexTmpl.Parse(string(data)); err != nil {
-			log.Printf("indexTmpl.Parse: %v\n", err)
-		}
-		if err = indexTmpl.Execute(w, tmpData); err != nil {
+		if err = indexTmpl.Execute(w, tmplData); err != nil {
 			log.Printf("indexTmpl.Execute: %v\n", err)
+			return
 		}
 	})
 	http.Handle("/app/static/", http.StripPrefix("/app/static/", http.FileServer(afs)))
+
+	return nil
 }
 
-func SetupReverseProxy(sdbDBName, sdbInstanceAddr, sdbAPIKey, sdbAPIValue string) {
+// SetupReverseProxy setups the reverse proxy to SlashDB instance
+func SetupReverseProxy(
+	sdbDBName,
+	sdbInstanceAddr,
+	sdbAPIKey,
+	sdbAPIValue string,
+) error {
 	// get address for the SlashDB instance and parse the URL
 	url, err := url.Parse(sdbInstanceAddr)
 	if err != nil {
-		log.Fatalf("failed to parse sdbInstanceAddr: %v\n", err)
+		return fmt.Errorf("failed to parse sdbInstanceAddr: %w", err)
 	}
 
 	// create a reverse proxy
@@ -55,4 +73,6 @@ func SetupReverseProxy(sdbDBName, sdbInstanceAddr, sdbAPIKey, sdbAPIValue string
 	}
 	// bind the proxy handler to "/"
 	http.HandleFunc("/", authorizationMiddleware(sdbDBName, proxyHandler, nil))
+
+	return nil
 }

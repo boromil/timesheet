@@ -65,7 +65,7 @@ func writeValidationErrors(w http.ResponseWriter, vData map[string][]string) {
 }
 
 func regHandler(
-	sdbService slashdb.Service,
+	sdbService *slashdb.Service,
 ) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -175,7 +175,7 @@ func genJWTToken(username string, id int, secret []byte) (string, error) {
 }
 
 func loginHandler(
-	sdbService slashdb.Service,
+	sdbService *slashdb.Service,
 ) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -249,12 +249,12 @@ func loginHandler(
 	}
 }
 
-// SetupAuthHandlers adds user auth endpoints
-func SetupAuthHandlers(
-	sdbService slashdb.Service,
+// Init setups http routing
+func Init(
+	sdbService *slashdb.Service,
 ) {
-	http.HandleFunc("/app/reg/", regHandler(sdbService))
-	http.HandleFunc("/app/login/", loginHandler(sdbService))
+	http.HandleFunc("/app/reg", regHandler(sdbService))
+	http.HandleFunc("/app/login", loginHandler(sdbService))
 }
 
 func authorizationMiddleware(

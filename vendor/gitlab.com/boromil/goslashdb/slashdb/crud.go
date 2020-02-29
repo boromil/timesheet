@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/pkg/errors"
 	"gitlab.com/boromil/goslashdb/types"
 )
 
@@ -38,7 +37,7 @@ type CRUDer interface {
 }
 
 // Get gets resources using GET method
-func (s *service) Get(
+func (s *Service) Get(
 	ctx context.Context,
 	sdbReq fmt.Stringer,
 	container interface{},
@@ -48,14 +47,13 @@ func (s *service) Get(
 
 	s.echoRequest(method, endpoint, nil)
 
-	hreq, err := http.NewRequest(method, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, nil)
 	if err != nil {
-		return errors.Wrap(err, "error creating a request")
+		return fmt.Errorf("error creating a request: %w", err)
 	}
-	hreq = hreq.WithContext(ctx)
-	hreq.Header.Set(s.apiKeyName, s.apiKeyValue)
+	req.Header.Set(s.apiKeyName, s.apiKeyValue)
 
-	resp, err := s.client.Do(hreq)
+	resp, err := s.client.Do(req)
 	if resp != nil {
 		defer func() {
 			if _, err = io.Copy(ioutil.Discard, resp.Body); err != nil {
@@ -67,7 +65,7 @@ func (s *service) Get(
 		}()
 	}
 	if err != nil {
-		return errors.Wrap(err, "error doing the request")
+		return fmt.Errorf("error doing the request: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -80,14 +78,14 @@ func (s *service) Get(
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(container); err != nil {
-		return errors.Wrap(err, "error decoding response")
+		return fmt.Errorf("error decoding response: %w", err)
 	}
 
 	return nil
 }
 
 // Create creates resources using POST method
-func (s *service) Create(
+func (s *Service) Create(
 	ctx context.Context,
 	sdbReq fmt.Stringer,
 	payload interface{},
@@ -95,7 +93,7 @@ func (s *service) Create(
 	data := []byte{}
 	buf := bytes.NewBuffer(data)
 	if err := json.NewEncoder(buf).Encode(payload); err != nil {
-		return types.CreateResponse{}, errors.Wrap(err, "error encoding data")
+		return types.CreateResponse{}, fmt.Errorf("error encoding data: %w", err)
 	}
 
 	method := http.MethodPost
@@ -103,15 +101,14 @@ func (s *service) Create(
 
 	s.echoRequest(method, endpoint, data)
 
-	hreq, err := http.NewRequest(method, endpoint, buf)
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, buf)
 	if err != nil {
-		return types.CreateResponse{}, errors.Wrap(err, "error creating a request")
+		return types.CreateResponse{}, fmt.Errorf("error creating a request: %w", err)
 	}
-	hreq = hreq.WithContext(ctx)
-	hreq.Header.Set(s.apiKeyName, s.apiKeyValue)
-	hreq.Header.Set("Content-Type", "application/json")
+	req.Header.Set(s.apiKeyName, s.apiKeyValue)
+	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := s.client.Do(hreq)
+	resp, err := s.client.Do(req)
 	if resp != nil {
 		defer func() {
 			if _, err = io.Copy(ioutil.Discard, resp.Body); err != nil {
@@ -123,7 +120,7 @@ func (s *service) Create(
 		}()
 	}
 	if err != nil {
-		return types.CreateResponse{}, errors.Wrap(err, "error doing the request")
+		return types.CreateResponse{}, fmt.Errorf("error doing the request: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
@@ -137,14 +134,14 @@ func (s *service) Create(
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return types.CreateResponse{}, errors.Wrap(err, "error reading response body")
+		return types.CreateResponse{}, fmt.Errorf("error reading response body: %w", err)
 	}
 
 	return types.NewCreateResponse(string(b)), nil
 }
 
 // Update updates resources using PUT method
-func (s *service) Update(
+func (s *Service) Update(
 	ctx context.Context,
 	sdbReq fmt.Stringer,
 	payload interface{},
@@ -152,7 +149,7 @@ func (s *service) Update(
 	data := []byte{}
 	buf := bytes.NewBuffer(data)
 	if err := json.NewEncoder(buf).Encode(payload); err != nil {
-		return errors.Wrap(err, "error encoding data")
+		return fmt.Errorf("error encoding data: %w", err)
 	}
 
 	method := http.MethodPut
@@ -160,15 +157,14 @@ func (s *service) Update(
 
 	s.echoRequest(method, endpoint, data)
 
-	hreq, err := http.NewRequest(method, endpoint, buf)
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, buf)
 	if err != nil {
-		return errors.Wrap(err, "error creating a request")
+		return fmt.Errorf("error creating a request: %w", err)
 	}
-	hreq = hreq.WithContext(ctx)
-	hreq.Header.Set(s.apiKeyName, s.apiKeyValue)
-	hreq.Header.Set("Content-Type", "application/json")
+	req.Header.Set(s.apiKeyName, s.apiKeyValue)
+	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := s.client.Do(hreq)
+	resp, err := s.client.Do(req)
 	if resp != nil {
 		defer func() {
 			if _, err = io.Copy(ioutil.Discard, resp.Body); err != nil {
@@ -180,7 +176,7 @@ func (s *service) Update(
 		}()
 	}
 	if err != nil {
-		return errors.Wrap(err, "error doing the request")
+		return fmt.Errorf("error doing the request: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusNoContent {
@@ -196,7 +192,7 @@ func (s *service) Update(
 }
 
 // Delete deletes resources using DELETE method
-func (s *service) Delete(
+func (s *Service) Delete(
 	ctx context.Context,
 	sdbReq fmt.Stringer,
 ) error {
@@ -205,14 +201,13 @@ func (s *service) Delete(
 
 	s.echoRequest(method, endpoint, nil)
 
-	hreq, err := http.NewRequest(method, endpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, nil)
 	if err != nil {
-		return errors.Wrap(err, "error creating a request")
+		return fmt.Errorf("error creating a request: %w", err)
 	}
-	hreq = hreq.WithContext(ctx)
-	hreq.Header.Set(s.apiKeyName, s.apiKeyValue)
+	req.Header.Set(s.apiKeyName, s.apiKeyValue)
 
-	resp, err := s.client.Do(hreq)
+	resp, err := s.client.Do(req)
 	if resp != nil {
 		defer func() {
 			if _, err = io.Copy(ioutil.Discard, resp.Body); err != nil {
@@ -224,7 +219,7 @@ func (s *service) Delete(
 		}()
 	}
 	if err != nil {
-		return errors.Wrap(err, "error doing a request")
+		return fmt.Errorf("error doing a request: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusNoContent {

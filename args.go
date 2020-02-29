@@ -1,4 +1,4 @@
-package args
+package main
 
 import (
 	"flag"
@@ -38,7 +38,7 @@ func Parse() *ParsedArgs {
 	)
 	flag.Parse()
 
-	pa.Address = fmt.Sprintf("%s:%d", pa.Interf, pa.Port)
+	pa.Address = fmt.Sprintf("%s:%d", pa.Interface, pa.Port)
 	// extract SlashDB API key
 	if tmp := strings.Split(sdbAPIKey, ":"); len(tmp) != 2 {
 		log.Fatalln(fmt.Errorf("expected key, value pair, got: %s", sdbAPIKey))
