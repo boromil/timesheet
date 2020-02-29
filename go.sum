@@ -1,0 +1,10 @@
+github.com/dgrijalva/jwt-go v3.0.1-0.20170104182250-a601269ab70c+incompatible h1:CMT73tvGw+n1lX6Qq2x5QAMUC0gVE/mHRgDvWd43L88=
+github.com/dgrijalva/jwt-go v3.0.1-0.20170104182250-a601269ab70c+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
+github.com/elazarl/go-bindata-assetfs v1.0.0 h1:G/bYguwHIzWq9ZoyUQqrjTmJbbYn3j3CKKpKinvZLFk=
+github.com/elazarl/go-bindata-assetfs v1.0.0/go.mod h1:v+YaWX3bdea5J/mo8dSETolEo7R71Vk1u8bnjau5yw4=
+github.com/pkg/errors v0.8.1-0.20171216070316-e881fd58d78e h1:osn9cOzd93npXpRuTFR/MPjiTvTSNHA7pqbXkPyLqQ4=
+github.com/pkg/errors v0.8.1-0.20171216070316-e881fd58d78e/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+gitlab.com/boromil/goslashdb v0.0.4-0.20180331001704-4662685ee56b h1:Eu4RV8icW5cByZzFImQTSd53y+CKcpralqmBMTQayjU=
+gitlab.com/boromil/goslashdb v0.0.4-0.20180331001704-4662685ee56b/go.mod h1:8IJMYmHcy/OWJ/W6lnAAW7wFZPsc4Hkl/6t6c1wIm0A=
+golang.org/x/crypto v0.0.0-20170619204222-adbae1b6b6fb h1:6QZjMZJzos5C5rW30xO+0C8f9gKkgeb1z/K4gyS8DFA=
+golang.org/x/crypto v0.0.0-20170619204222-adbae1b6b6fb/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=

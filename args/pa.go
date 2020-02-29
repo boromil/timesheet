@@ -10,7 +10,7 @@ import (
 // ParsedArgs - container for parsed CLI args.
 type ParsedArgs struct {
 	Port uint
-	Interf,
+	Interface,
 	Address,
 	SdbInstanceAddr,
 	SdbDBName,
@@ -24,7 +24,7 @@ type ParsedArgs struct {
 func Parse() *ParsedArgs {
 	pa := &ParsedArgs{}
 
-	flag.StringVar(&pa.Interf, "net-interface", "localhost", "network interface to serve on")
+	flag.StringVar(&pa.Interface, "net-interface", "localhost", "network interface to serve on")
 	flag.UintVar(&pa.Port, "port", 8000, "local port to serve on")
 	flag.StringVar(&pa.SdbInstanceAddr, "sdb-address", "https://demo.slashdb.com", "SlashDB instance address")
 	flag.StringVar(&pa.SdbDBName, "sdb-dbname", "timesheet", "SlashDB DB name i.e. https://demo.slashdb.com/db/>>timesheet<<")
